@@ -233,6 +233,19 @@ AVOID:
         stack addresses ( sta_add ).
 
     ########################################WHY_VOB_DEX#
+    #EXTRA_MAPS:########################################
+
+        Once we are ACTUALLY using a 512-x-512 texture
+        we will have 3 extra maps worth of data.
+
+        I think we could do it like this:
+
+        MAP_001: Original Voxel Map
+        MAP_002: Lighting       Map
+        MAP_003: Sprites or other moving entities.
+        MAP_004: Elemental Things. Fire, Water, ETC.
+
+    #########################################EXTRA_MAPS#
 
 *** ************************************************ **/
 //:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE:EXTRACTED_COMMENTS://

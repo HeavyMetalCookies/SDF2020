@@ -47,6 +47,8 @@
 
 IV3 v3d_CTO_xyc_256( IV3 v3d     ){
 
+    /**ONLY TEXTURE FETCHING SHOULD USE THIS FUNCTION**/
+
     IV3 xyc_256; /**return:value**/
 
     I32 v_x = v3d.x;
@@ -74,7 +76,7 @@ IV3 v3d_CTO_xyc_256( IV3 v3d     ){
     xyc_256=IV3( p_x , p_y, csC );
     return( xyc_256 );
 
-} IV3 v_i_512_CTO_v3d( I32 v_i_512 ){
+}IV3 v_i_512_CTO_v3d( I32 v_i_512 ){
 
     IV3 v3d; /** return:value **/
 
@@ -112,7 +114,16 @@ IV3 v3d_CTO_xyc_256( IV3 v3d     ){
     v3d = IV3( v_x , v_y , v_z );
     return( v3d );
 
-}   U32 v3d_sam_CTO_vob( IV3 v3d , sampler2D sam ){
+}I32 v3d_CTO_v_i_512( IV3 v3d ){
+         I32 v_i_512; /**return:value**/
+
+    //:TODO: [v_x,v_y,v_z] ==> v_i_512
+
+    #error finish this
+
+    return( v_i_512 );
+
+}U32 v3d_sam_CTO_vob( IV3 v3d , sampler2D sam ){
 
     U32 vob ; /**return:value**/
 
@@ -152,7 +163,7 @@ IV3 v3d_CTO_xyc_256( IV3 v3d     ){
     
     return( vob );
 
-} U32 v_i_512_sam_CTO_vob(I32 v_i_512 , sampler2D sam){
+}U32 v_i_512_sam_CTO_vob(I32 v_i_512 , sampler2D sam){
 
     U32 vob; /**return:value**/
 
