@@ -1,0 +1,97 @@
+//[ THIS_FILE_IS[ SDF_018.BUFFER._ ]                 ]//
+/** ************************************************ ***
+***                                                  ***
+***     Live Stream Of Me Working On This Code:      ***
+***                                                  ***
+*** ************************************************ ***
+
+                twitch.com/kanjicoder    
+
+*** ************************************************ ***
+***                                                  ***
+*** SELF___________URL:  tinyurl.com/SDF-018-BUFFER  ***
+*** DOCUMENTATION__URL:  tinyurl.com/SDF-018         ***
+*** SOURCE_CODE_BUFFER:  tinyurl.com/SDF-018-BUFFER  ***
+*** SOURCE_CODE__IMAGE:  tinyurl.com/SDF-018-IMAGE   ***
+*** LIVE__________DEMO:  tinyurl.com/SDF-018-DEMO    ***
+*** SETUP________VIDEO:  tinyurl.com/SDF-018-SETUP   ***
+***                                                  ***
+*** ************************************************ **/
+//:INSTRUCTIONS:IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII://
+/** ************************************************ ***
+
+    Click And Drag on the canvas to set pixels.
+
+*** ************************************************ **/
+//:IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII:INSTRUCTIONS://
+//:MACROS:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM://
+ 
+    #define IV2 ivec2
+    #define V_4  vec4
+    #define V_3  vec3
+    #define V_2  vec2
+    #define F32 float
+    #define I32   int
+    #define U32  uint
+
+//:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM:MACROS://
+//:DATA:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD://
+
+    //:NO DATA
+
+//:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD:DATA://
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+//:FUNCTIONS:BELOW:____DO_NOT_INDENT____OUTER_SCOPE!!://
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    V_4 c4d;
+
+    IV2 f_c = IV2( I32( fragCoord.x - 0.5 ) , 
+                   I32( fragCoord.y - 0.5 ) );;
+
+    //:Initialize Data?
+    V_4 rfp = texelFetch( iChannel0 ,ivec2(127,127),0);
+    U32 rfb = U32( rfp.w * 255.0 );
+    if( rfb >= U32( 1 ) ){
+
+        c4d = texelFetch( iChannel0 , f_c , 0 );
+
+    }else{
+        if( f_c.x != 127 && f_c.y != 127 ){
+            c4d=vec4(1.0,1.0,1.0    ,1);
+        }else{
+            c4d=vec4(1.0,1.0,1.0    ,1);
+        };;
+    };;
+
+    //:Set [pixel/tile] ?
+    if( iMouse.z > 0.0 ){ //:Mouse Down?
+    if( I32( iMouse.x ) == f_c.x ){
+    if( I32( iMouse.y ) == f_c.y ){
+
+        
+        c4d=vec4( 0,0,1  ,1);
+
+    };;};;};;
+
+   
+    fragColor = c4d;
+
+}
+
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+//:FUNCTIONS:ABOVE:____DO_NOT_INDENT____OUTER_SCOPE!!://
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+//:MACROS:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM://
+ 
+    #undef  IV2  
+    #undef  V_4  
+    #undef  V_3  
+    #undef  V_2  
+    #undef  F32  
+    #undef  I32  
+    #undef  U32  
+
+//:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM:MACROS://

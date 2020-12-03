@@ -1,0 +1,73 @@
+//[ THIS_FILE_IS[ SDF_019.IMAGE._ ]                  ]//
+/** ************************************************ ***
+***                                                  ***
+***     Live Stream Of Me Working On This Code:      ***
+***                                                  ***
+*** ************************************************ ***
+
+                twitch.com/kanjicoder    
+
+*** ************************************************ ***
+***                                                  ***
+*** LIVE__________DEMO:  tinyurl.com/SDF-019-DEMO    ***
+*** SETUP________VIDEO:  tinyurl.com/SDF-019-SETUP   ***
+***                                                  ***
+***      SELF______URL:  tinyurl.com/SDF-019-BUFFER  ***
+***      DOCUMENTATION:  tinyurl.com/SDF-019         ***
+***      SOURCE_COMMON:  tinyurl.com/SDF-019-COMMON  ***
+***      SOURCE_BUFFER:  tinyurl.com/SDF-019-BUFFER  ***
+***      SOURCE__IMAGE:  tinyurl.com/SDF-019-IMAGE   ***
+***                                                  ***
+*** ************************************************ **/
+//:INSTRUCTIONS:IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII://
+/** ************************************************ ***
+
+    Click And Drag on the canvas to set pixels.
+
+*** ************************************************ **/
+//:IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII:INSTRUCTIONS://
+//:MACROS:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM://
+ 
+    #define IV2 ivec2
+    #define V_4  vec4
+    #define V_3  vec3
+    #define V_2  vec2
+    #define F32 float
+    #define I32   int
+    #define U32  uint
+
+//:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM:MACROS://
+//:DATA:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD://
+
+    //:NO DATA
+
+//:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD:DATA://
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+//:FUNCTIONS:BELOW:____DO_NOT_INDENT____OUTER_SCOPE!!://
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{ 
+    IV2 f_c = IV2( I32(fragCoord.x - 0.5 ) , 
+                   I32(fragCoord.y - 0.5 ) );;
+
+    V_4 c4d = texelFetch( iChannel0 , f_c , 0 );
+
+
+     fragColor = c4d;
+}
+
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+//:FUNCTIONS:ABOVE:____DO_NOT_INDENT____OUTER_SCOPE!!://
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+//:MACROS:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM://
+ 
+    #undef  IV2  
+    #undef  V_4  
+    #undef  V_3  
+    #undef  V_2  
+    #undef  F32  
+    #undef  I32  
+    #undef  U32  
+
+//:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM:MACROS://

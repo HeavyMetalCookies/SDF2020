@@ -1,0 +1,63 @@
+
+//:My 2nd SDF shader. Need to figure out how the surface
+//:normal calculation function works.
+//:Previous_Shader[ SC[ MY_SDF_001 ] ]
+//:Previous_Shader[ MATH\SDF\PHOSPHOROUS_CAMERA\PC.WORK._ ]
+
+//: THE LIGHTING IS WRONG HERE. JUST STOP HERE!!!
+//: Watch tutorial again and follow along. Then
+//: attempt writing a shader again.
+
+float sdf_sphere_001( vec3 point_along_ray ){
+    vec3  s_org = vec3(0,0,0);
+    float s_rad = ( 1.0 );
+    return( length( point_along_ray - s_org ) - s_rad );
+}
+float sdf_sphere_002( vec3 point_along_ray ){
+    vec3  s_org = vec3(0,0,0);
+    float s_rad = ( 1.0 );
+    return( length( point_along_ray - s_org ) - s_rad );
+}
+float sdf_AllGeom( vec3 p ){
+    return( min( sdf_sphere_001( p ),
+                 sdf_sphere_002( p ) ));
+}
+
+xxxxxxxxxxxxxxxxxxxxxx sdf_estnorm goes here
+
+
+//:TODO: finish this function
+float getLight( vec3 pos ){
+    vec3  l_p = vec3(2,0,0) + vec3( 0.0 , cos(iTime)*3.0,sin(iTime)*3.0 );
+    vec3  l_n = normalize( l_p - pos ); //:light_normal
+    vec3  p_n = sdf_EstNorm( pos );
+    float l_i = dot(l_n , p_n);
+    return( l_i );
+}
+
+vec3 march( vec3 pos, vec3 ang ){
+    float dis =float( 0 );
+    for( int i = 0 ; i < 100; i++ ){
+    	dis = sdf_AllGeom( pos );
+        if( dis <= 0.0 || dis >= 100.0 ){ break; };
+    	pos = pos+(ang*dis);
+    };;
+    
+    float l_i = getLight( pos );
+    
+	return( vec3(1.0-dis )*l_i );
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    // Normalized pixel coordinates (from 0 to 1)
+     vec2 uv = (fragCoord-0.5*iResolution.xy)/iResolution.y;
+     
+    vec3  eye = vec3(0,0,9); //:Eye_Camera
+    vec3  pho = vec3(0,0,6); //:Phosphore_Screen
+    vec3  ray = vec3(uv.x,uv.y,pho.z) - eye;
+    vec3    m = march( eye , normalize(ray) );
+
+
+    fragColor = vec4(m.x,m.y,m.x,1.0);
+}

@@ -1,0 +1,603 @@
+/** ******************************************** ***
+
+    EASY_SOURCE_CODE_LINK:    tinyurl.com/SDF-008
+    DIRECT_LINK_TO_SOURCE:  pastebin.com/8nrpsrfY
+
+    About: Voxel Rendering For Patent Drawings.
+           SDF_008 will only get to figuring out
+           how to render voxel bounds, but not
+           any voxel details.
+
+*** ******************************************** **/
+
+#define V_4  vec4
+#define V_3  vec3
+#define V_2  vec2
+#define F32 float
+#define I32   int
+
+//:DEBUGGING:====================================://
+
+    /** Nothing here yet **/
+
+//:====================================:DEBUGGING://
+//:CONFIGURATION:================================://
+
+    /** SLICE_RENDER_USING_CAMERA_PLANE **/
+    int CFG_SLICE_RENDER=( 1 );
+
+//:================================:CONFIGURATION://
+//:RAYMARCHING_AND_VOXEL_CONSTANTS:==============://
+
+    //:These defines are for ray marching when using
+    //:fragment coordinates as our coordinate space.
+    #define MAX_STE 1000   //:Max Step
+    #define MIN_DIS 0.02   //:Min Dist (SurfaceDist)
+    #define MAX_DIS 1000.0 //:Max Dist
+
+    //:Number of tiles on each axis:
+    #define NTX  8  //:Num_Tiles (   in_voxel_map )
+    #define NTY  4  //:Num_Tiles (   in_voxel_map )
+    #define NTZ  3  //:Num_Tiles (   in_voxel_map )
+
+    #define NPX  16 //:Num_Pixels_X( in_a_tile    )
+    #define NPY  16 //:Num_Pixels_Y( in_a_tile    )
+    #define NPZ  16 //:Num_Pixels_Z( in_a_tile    )
+
+    //:Total__number_of__Pixels__in_entire_voxel_map
+    #define TPX  ( NTX * NPX ) //: Total_Pixels_X
+    #define TPY  ( NTY * NPY ) //: Total_Pixels_Y
+    #define TPZ  ( NTZ * NPZ ) //: Total_Pixels_Z
+
+    #define _ 0                                          
+    #define X 1                                          
+    int VAT[ NTX * NTY * NTZ ]=int[ 8 * 4 * 3 ](   
+
+    /** TODO: Eventually use an integer texture  **/
+    /**       for this tilemap data.             **/
+        
+    //:Highest Z Cross Section Is First Tile Map
+    //: 1 2 3 4 5 6 7 8        --- -----------------
+        X,X,X,X,X,X,X,X, //: 1  |             ^
+        X,_,_,_,_,_,_,X, //: 2  | Z == 0      |
+        X,_,_,_,_,_,_,X, //: 3  |             |
+        X,X,X,X,X,X,X,X, //: 4  |             |
+    //:                        ---            |
+    //: 1 2 3 4 5 6 7 8        ---   Cross Sections
+        X,_,_,_,_,_,_,X, //: 1  |    Can be thought
+        _,_,_,_,_,_,_,_, //: 2  |    of as differ-
+        _,_,_,_,_,_,_,_, //: 3  |    -ent 2D
+        X,_,_,_,_,_,_,X, //: 4  |    tilemaps. 
+    //:                        ---            |
+    //: 1 2 3 4 5 6 7 8        ---            |
+        X,_,_,_,_,_,_,X, //: 1  |             |
+        X,_,_,_,_,_,_,X, //: 2  | Z == 2      |
+        X,_,_,_,_,_,_,X, //: 3  |             |
+        X,_,_,_,_,_,_,X  //: 4  |             V
+    //:                        --- -----------------
+    );                                                 
+    #undef  _                                             
+    #undef  X  
+
+//:==============:RAYMARCHING_AND_VOXEL_CONSTANTS://
+//:STRUCTS:======================================://
+
+    //:RWC_AND_RWN:------------------------------://
+
+        struct RWC_AND_RWN{
+            V_3 rwC;
+            V_3 rwN;
+        };
+    
+    //:------------------------------:RWC_AND_RWN://
+    //:DIS_AND_VOX:------------------------------://
+
+        /** Current Voxel Information **/
+        struct VOX_CUR{
+           uint has;  //: voxel:exists?
+            int val;  //: voxel:tile_value
+            int dex;  //: voxel:1d_index
+            int t_x;  //: voxel:tile_x
+            int t_y;  //: voxel:tile_y
+            int t_z;  //: voxel:tile_z
+        };
+
+        /** Distance Information **/
+        struct VOX_DIS{
+            F32 nex; //:Distance_To_Next
+        //  F32 d_S; //:Distance_To_Surface
+        //           //:Within_Current_Voxel
+        };
+
+        struct DIS_AND_VOX{
+        
+            VOX_CUR  vox_cur;
+            VOX_DIS  vox_dis;
+        
+        };
+
+    //:------------------------------:DIS_AND_VOX://
+
+//:======================================:STRUCTS://
+//:NO_HALT_USE_ERROR_PIXEL:======================://
+#define _32_ ( 32.0 / 255.0 )
+#define _64_ ( 64.0 / 255.0 )
+#define _7F_ (128.0 / 255.0 )
+#define _FF_ (255.0 / 255.0 )
+
+    #define ERR_001  1  /** msg_err # 1 **/
+    #define ERR_002  2  /** msg_err # 2 **/
+
+    V_4     PIX_ERR( 
+        int msg_err /** EX: MSG_ERR_001 **/
+    ,   V_4 pix_err /** Previous Pixel Error **/
+    ,   int   o_k
+    )
+    {
+        /** Muddy Pastel Yellow For When You     **/
+        /** forget to set the pix_err_out value. **/
+        V_4 pix_err_out=V_4(0.5,0.5,0.2,1);
+
+        float flux=( mod(iTime,1.0) );
+
+        if( o_k <= 0 ){
+            pix_err_out = pix_err;
+        }else
+        if( 1 == o_k ){
+
+            F32  _ =F32( 0.0 );
+
+            /** table of error "messages" **/
+            V_4 tab[10]=V_4[10](           //:tab://
+                                           //:tab://
+                //:0: Invalid Error Code   //:tab://
+                V_4( flux,0.0,0.0 ,1.0)    //:tab://
+                                           //:tab://
+               ,V_4(    _,_32_,_32_,_FF_ ) //:tab://
+               ,V_4( _32_,   _,_32_,_FF_ ) //:tab://
+               ,V_4( _32_,_32_,   _,_FF_ ) //:tab://
+                                           //:tab://
+               ,V_4(    _,_64_,_64_,_FF_ ) //:tab://
+               ,V_4( _64_,   _,_64_,_FF_ ) //:tab://
+               ,V_4( _64_,_64_,   _,_FF_ ) //:tab://
+                                           //:tab://
+               ,V_4(    _,_7F_,_7F_,_FF_ ) //:tab://
+               ,V_4( _7F_,   _,_7F_,_FF_ ) //:tab://
+               ,V_4( _7F_,_7F_,   _,_FF_ ) //:tab://
+            );;
+
+            pix_err_out =( tab[ msg_err ] );
+
+            //:Make error pixels strobe
+            if( mod(iTime*2.0,2.0) < 1.0 ){
+                pix_err_out = V_4( 
+                    1.0,1.0,1.0,1.0
+                );;
+            }else{
+                pix_err_out =( tab[ msg_err ] );
+            };;
+
+        }else{
+            //:Orange strobe for an o_k value
+            //:that is NOT expected. (o_k >= 2)
+            pix_err_out=( 
+            V_4( flux,0.5,0.0,1.0) );;
+        };;
+            
+        return( pix_err_out );
+        
+    }
+
+#undef  _32_  
+#undef  _64_  
+#undef  _7F_  
+#undef  _FF_  
+//:======================:NO_HALT_USE_ERROR_PIXEL://
+
+
+V_2 f_c_CTO_f_p( V_2 f_c ){
+V_2         f_p;
+    f_p = f_c / ( iResolution.xy - 1.0 );
+    return(  f_p );
+}
+
+V_3 sdf_i3d(
+/**/V_3 _1_
+,   V_3 _2_
+,   F32 f_p
+){
+    return( _1_ + ( ( _2_ - _1_ )*f_p ) );
+}
+
+        RWC_AND_RWN 
+f_p_CTO_rwC_AND_rwN( 
+    V_2 f_p /** 2 dimensional percentage **/ 
+)
+{
+ 
+    V_3 rwC;
+    V_3 rwN;
+
+    //: Polygon in 3d space to serve as the
+    //: phosphor surface the CRT monitor electrons
+    //: will be projected onto.
+    //: Could probably use a mat4 for this.
+    float H = float( 0 - 9 );; //:Cam Height Pos
+    float X = iResolution.x - 1.0;
+    float Y = iResolution.y - 1.0;
+                              //:     A_B
+    V_3 _A_ = V_3( 0,0, H );  //: A----|--------B
+    V_3 _B_ = V_3( X,0, H );  //: |    |        |
+                              //: |   rwC       |
+    V_3 _C_ = V_3( 0,Y, H );  //: |    |        |
+    V_3 _D_ = V_3( X,Y, H );  //: C----|--------D
+                              //:     C_D
+
+    V_3 A_B = sdf_i3d( _A_ , _B_ , f_p.x );
+    V_3 C_D = sdf_i3d( _C_ , _D_ , f_p.x );
+        rwC = sdf_i3d( A_B , C_D , f_p.y );
+
+        //:Positive Z is further back into screen.
+        //:This way to help normalize voxel grid
+        //:math.
+        rwN = normalize( V_3( 0 , 0 , 1 ) );
+
+            RWC_AND_RWN
+            rwC_AND_rwN;
+            rwC_AND_rwN.rwC = rwC;
+            rwC_AND_rwN.rwN = rwN;
+    return( rwC_AND_rwN );
+}
+
+
+//:FIRST_VOXEL_QUERY_NEEDED:=====================://
+
+    #define T_X dis_and_vox.vox_cur.t_x
+    #define T_Y dis_and_vox.vox_cur.t_y
+    #define T_Z dis_and_vox.vox_cur.t_z
+
+    /** rwN used to find distance to NEXT voxel. **/
+        DIS_AND_VOX 
+    GET_dis_and_vox_USE_xyz_rwN( 
+                    V_3 xyz 
+                ,   V_3     rwN 
+    )
+    {
+
+        DIS_AND_VOX dis_and_vox;
+
+        //:CURRENT_VOXEL_CELL:-------------------://
+
+        dis_and_vox.vox_cur.val = int( 0 - 1 );
+        T_X = ( int(floor( xyz.x / float( NPX ))));
+        T_Y = ( int(floor( xyz.y / float( NPY ))));
+        T_Z = ( int(floor( xyz.z / float( NPZ ))));
+
+        //:-------------------:CURRENT_VOXEL_CELL://
+        //:GET_VOXEL_CELL_VALUE:-----------------://
+
+        /** Voxel Volume Is Hard Coded To have   **/
+        /** voxel__tile[0,0,0] stuck at world    **/
+        /** world_coord[0,0,0]                   **/
+        if( T_X >= 0 && T_X < NTX 
+        &&  T_Y >= 0 && T_Y < NTY 
+        &&  T_Z >= 0 && T_Z < NTZ 
+        ){
+
+            //: Index2D -and- Index3D
+            int D2D = T_X + ( NTX    *    T_Y );
+            int D3D = D2D + ( NTX * NTY * T_Z );
+
+            dis_and_vox.vox_cur.dex=(      D3D   );
+            dis_and_vox.vox_cur.val=( VAT[ D3D ] );
+
+            /** NOTE: Voxel value 0 will NOT get **/
+            /**       special treatment. It could**/
+            /**       contain geometry if we     **/
+            /**       really wanted it to.       **/
+            dis_and_vox.vox_cur.has=uint(  1  );
+            
+        }else{
+            /** Using a "has" flag so we         **/
+            /** can keep more logic UNSIGNED.    **/
+            /** (No need for negative value to ) **/
+            /** (be used for invalid dex or val) **/
+            dis_and_vox.vox_cur.dex= int(  0  );
+            dis_and_vox.vox_cur.val= int(  0  );
+            dis_and_vox.vox_cur.has=uint(  0  );
+        };;
+        //:-----------------:GET_VOXEL_CELL_VALUE://
+
+
+        //:TODO: Figure out distance to the NEXT voxel.
+
+      
+        return( dis_and_vox );
+    }
+    #undef  T_X
+    #undef  T_Y
+    #undef  T_Z
+//:=====================:FIRST_VOXEL_QUERY_NEEDED://
+//:INTEGER_MODULO:===============================://
+
+#ifndef I32
+#define I32 int
+#endif
+
+    I32
+    I32_MOD(
+    /**/I32 a /** ALL     : CAN BE NEGATIVE **/
+    ,   I32 d /** DIVISOR : ALWAYS POSITIVE **/
+    ){
+
+        /** ************************************ ***
+
+        Allow for I32_MOD to be used for wrapping
+        even when the input to wrap[ a ] goes
+        negative. d should always be positive.
+
+        EX: mod( x , 2 ) , where x == -1
+        | -1 | 0 [ 1 ] 2 |
+        |  1 | 0 [ 1 ] 0 | 1 | 0 |
+        d + 1 == 2 + (-1) == 1
+        *** ************************************ **/
+        if( a < 0 ){ a = d + a; };
+        
+        #ifndef F32
+        #define F32 float
+        #endif
+
+        F32 A = F32( a ); 
+        F32 D = F32( d );
+
+        //:EXAMPLE: I32_MOD( 9,2 )
+        //:         W == 4
+        //:         R == 1    (9 - ( 4 * 2 ) )
+
+        //: WARD:Wholepart,All,Remainder,Divisor 
+        int W = int(  trunc( A / (          D  )) );
+        int R = int(         A - ( F32(W) * D  )  );
+
+        return( R );
+    }
+//:===============================:INTEGER_MODULO://
+//:RENDER_SCENE:=================================://
+#define T_X dis_and_vox.vox_cur.t_x
+#define T_Y dis_and_vox.vox_cur.t_y
+#define T_Z dis_and_vox.vox_cur.t_z
+#define HAS dis_and_vox.vox_cur.has 
+
+    V_4 sdf_RenderScene( RWC_AND_RWN rwC_AND_rwN )
+    {
+        I32 o_k = I32( 1 );
+        V_4 c4d = V_4(1,1,1,1);
+
+        V_3 rwN = rwC_AND_rwN.rwN; 
+        V_3 rwC = rwC_AND_rwN.rwC;
+
+        V_3 xyz = rwC;
+     
+        DIS_AND_VOX
+        dis_and_vox; 
+
+        //:nex: Distance To NEXT voxel.
+        //:d_S: Distance To Surface Geometry inside
+        //:     the current voxel. In world coords.
+        dis_and_vox.vox_dis.nex =( 0.0 );  
+    //: dis_and_vox.vox_dis.d_S =( 0.0 );  
+
+        //:Voxels will be thought of as 3D tiles:
+        dis_and_vox.vox_cur.has = uint( 0 );
+        dis_and_vox.vox_cur.dex =  int( 0 );
+        dis_and_vox.vox_cur.t_x =  int( 0 );
+        dis_and_vox.vox_cur.t_y =  int( 0 );
+        dis_and_vox.vox_cur.t_z =  int( 0 );
+
+        //:RAY_MARCH_LOOP:-----------------------://
+        /** #ABOUT_RAY_MARCH_LOOP# **/
+
+            //:March to VOXEL:
+            for( int i = 0; i < MAX_STE ; i++ ){
+
+                //:March by distance to next voxel:
+                
+                //:Point_Normal_Form_To_Get:xyz
+                xyz = 
+                    rwC
+                + ( rwN * dis_and_vox.vox_dis.nex )
+                ;;
+            
+                    dis_and_vox = 
+                GET_dis_and_vox_USE_xyz_rwN( 
+                                    xyz,rwN );;
+
+                //:If voxel is not empty, ray march
+                //:inside of the voxel.
+                if( dis_and_vox.vox_cur.val > 0 ){
+                for( int v = 0; v < MAX_STE ; v++ ){
+
+
+                };;};;
+
+                /** Don't move the ray anywhere  **/
+                /** We are going to slice into   **/
+                /** whatever voxels the camera   **/
+                /** plane passes through.        **/
+                if( CFG_SLICE_RENDER >= 1 ){ 
+                    break; 
+                };;
+
+                
+
+            };;
+
+            
+
+        //:-----------------------:RAY_MARCH_LOOP://
+
+
+        if( CFG_SLICE_RENDER >= 1 ){
+        /** EVEN LAYERS: Checker: RED +YELLOW **/
+        /**  ODD LAYERS: Checker: BLUE+CYAN   **/
+
+            //:Layer value, 1 or 0
+            int lay = I32_MOD( T_Z, 2 );
+            
+            //:Checker pattern value, 1 or 0.
+            int chk =(  
+                I32_MOD(
+                    I32_MOD( T_X, 2 )
+                ,   I32_MOD( T_Y, 2 )
+                )
+            );;
+        
+            if( 0 != 0
+            || ( lay < 0 || lay > 1 )
+            || ( chk < 0 || chk > 1 )
+            || HAS > uint(1)
+            ){
+                c4d=PIX_ERR(ERR_001,c4d,o_k--);
+            };;
+
+            F32 a =( 1.0 ); //:ALPHA
+            F32 _ =( 0.0 );
+            F32 I =( 1.0 ); //:RGB INTENSITY
+            F32 i =( 0.5 );
+            F32 g =( 0.1 ); //:DARK-GREY
+            F32 G =( 0.4 );
+            F32 w =( 0.5 ); //:WHITE-GREY
+            F32 W =( 0.9 );
+            V_4 tab[8]=V_4[8](
+                //:OUT OF BOUNDS:           //:HAS?
+                V_4(g,_,g,a) , V_4(G,_,G,a) //:LAY
+               ,V_4(w,_,w,a) , V_4(W,_,W,a) //:CHK
+                
+                //:IN BOUNDS:               //:HAS?
+               ,V_4(I,_,_,a) , V_4(I,I,_,a) //:LAY
+               ,V_4(_,_,I,a) , V_4(_,I,I,a) //:CHK
+            );;
+            
+            I32 pik = (
+               (4 * ( HAS >= uint(1) ? 1 : 0 ))
+            +  (2 * lay )
+            +  (1 * chk )
+            );;
+
+            if( pik < 0 || pik >= 8 ){
+                c4d=PIX_ERR(ERR_002,c4d,o_k--);
+            };;
+            
+            //:TODO: Why is not rendering as
+            //:      checker?
+            c4d = tab[ pik ];
+
+        }else{
+            //:DEBUG ONLY.
+            c4d=V_4(1,1,1,1);
+        };;
+
+
+        
+        return( c4d );
+    }
+
+#undef  T_X 
+#undef  T_Y 
+#undef  T_Z 
+#undef  HAS
+//:=================================:RENDER_SCENE://
+
+void mainImage( 
+    out vec4 fragColor
+,   in  V_2 fragCoord 
+)
+{
+        
+    #define R_Y iResolution.y
+        V_2 f_c = V_2(
+        //:( FLIP? )       ( Discrete XY       ) ://
+           (  0.0  )   +   ( fragCoord.x - 0.5 )
+        ,  (R_Y-1.0)   -   ( fragCoord.y - 0.5 )
+        );;
+    #undef R_Y  
+    V_2 f_p = f_c_CTO_f_p( f_c );
+
+
+    //:CAMERA_RAY_FOR_CURRENT_PIXEL:-------------://
+
+        /** The coordinate and direction of the  **/
+        /** camera ray [rwC,rwN] are closely     **/
+        /** related, so return them using the    **/
+        /** same function. This will save        **/
+        /** processing power when we decide      **/
+        /** to create a camera lense that        **/
+        /** is a 360 degree cylinder around      **/
+        /** an object. (for fun)                 **/
+
+        RWC_AND_RWN
+        rwC_AND_rwN;
+
+        rwC_AND_rwN = f_p_CTO_rwC_AND_rwN( f_p );
+
+    //:-------------:CAMERA_RAY_FOR_CURRENT_PIXEL://
+
+    fragColor = sdf_RenderScene( rwC_AND_rwN );
+
+}
+
+
+//:DOCUMENTATION:================================://
+/** ******************************************** ***
+    Abbreviations:
+    f : fragment
+    p : percent (Never Position, use C for coord)
+    c : coordinate
+    r : ray
+    n : normal, for directions.
+    d : distance. NEVER DIRECTION.( use: n:normal )
+    
+    Identifiers:
+    CTO: Convert_TO
+    rwC: RayWorldCoord
+    rwN: RayWorldNormal
+    f_p: FragPercent
+    f_c: FragCoord (With Discrete Pixel Coords)
+                (instead of pixel centers  )
+    dad: Distance_And_inDEX 
+        Index is 1D index of XYZ voxel tile
+        coordinate.
+    vat: Voxel_Array__of__Tiles
+    c4d: Color_4_Dimensional(RGBA)
+
+
+    FUNCTIONS:
+    f_c_CTO_f_p : FragmentCoord -CTO- FragPercent
+    f_c_CTO_per : USE[ f_c_CTO_f_p ]
+
+    sdf_i3d     : Interpolate_Two_3D_Points
+
+    EXTRACTED_BLOCK_COMMENTS:
+
+        #ABOUT_RAY_MARCH_LOOP#######################
+
+        Ray marching loop should be able to look    
+        at the current voxel coordinate returned    
+        and decide to STOP marching if it wants.    
+        By stopping immediately without marching    
+        at all we can make the camera phosphore     
+        surface a slice plane that renders          
+        cross sectional views of tilemap data.      
+    
+        ######################ABOUT_RAY_MARCH_LOOP##
+    
+*** ******************************************** **/
+//:================================:DOCUMENTATION://
+
+
+#undef  V_4 
+#undef  V_3 
+#undef  V_2 
+#undef  F32 
+#undef  I32 
+
+

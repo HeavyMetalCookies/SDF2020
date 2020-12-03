@@ -1,0 +1,90 @@
+//[ THIS_FILE_IS[ SDF_018._ ]                        ]//
+/** ************************************************ ***
+***                                                  ***
+***     Live Stream Of Me Working On This Code:      ***
+***                                                  ***
+*** ************************************************ ***
+
+                twitch.com/kanjicoder    
+
+*** ************************************************ ***
+***                                                  ***
+*** EASY_URLS:(BELOW):- - - - - - - - - - - - - - -: ***
+***                                                  ***
+*** SELF___________URL:  tinyurl.com/SDF-018         ***
+*** DOCUMENTATION__URL:  tinyurl.com/SDF-018         ***
+*** SOURCE_CODE_BUFFER:  tinyurl.com/SDF-018-BUFFER  ***
+*** SOURCE_CODE__IMAGE:  tinyurl.com/SDF-018-IMAGE   ***
+*** LIVE__________DEMO:  tinyurl.com/SDF-018-DEMO    ***
+*** SETUP________VIDEO:  tinyurl.com/SDF-018-SETUP   ***
+***                                                  ***
+*** DIRECT_URLS:(BELOW):- - - - - - - - - - - - - -: ***
+***                                                  ***
+*** SELF___________URL:  pastebin.com/nkNEKtsN       ***
+*** DOCUMENTATION__URL:  pastebin.com/nkNEKtsN       ***
+*** SOURCE_CODE_BUFFER:  pastebin.com/bBhCbcMr       ***
+*** SOURCE_CODE__IMAGE:  pastebin.com/guzES91G       ***
+*** LIVE__________DEMO:  shadertoy.com/view/WsGfDh   ***
+*** SETUP________VIDEO:  youtu.be/diF-OTf8SP4        ***
+***                                                  ***
+*** ************************************************ **/
+//:AGENDA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA://
+/** ************************************************ ***
+
+    About: Voxel Engine Work.                     
+        SDF_018 is starting over.                 
+        Threw SDF_017 in the trash.               
+                                                  
+    AGENDA:                                       
+        Store 512 x 512 values worth of tiles     
+        by splitting the A,R,G,B components of    
+        of 256x256 buffer.                        
+                                                  
+        Thus each tile value is 1 byte, with      
+        valid values 0-255.                       
+                                                  
+*** ************************************************ **/                                              
+//:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:AGENDA://
+//:KEY:KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK://
+/** ************************************************ ***
+
+    rfp : reset_flag_pixel
+    rfb : reset_flag__byte (Alpha channel of rfp)
+    fcc : frag_Centered_coord
+    f_c : frag_coord (Discreet_Integer_Pixel_Value)
+
+ 
+AVOID:
+
+    fpc: Looks too much like "percent something..."
+         Use "fcc" instead.
+
+*** ************************************************ **/
+//:KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK:KEY://
+//:DOCUMENTATION:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD://
+
+
+//:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD:DOCUMENTATION://
+//:EXTRACTED_COMMENTS:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE://
+/** ************************************************ ***
+
+    #PIXEL_127_ALPHA####################################
+
+        Bottom Left Corner Pixel [127,127] ALPHA BITS:
+
+        MSB: 1  :  Data Initilialized Bit
+             1  :  2D or 3D view of tilemap?
+                :  0 : 2D view
+                :  1 : 3D view
+        
+             1  : ---+
+             1  :    |
+             1  :    +-- What layer are we on?
+             1  :    +-- Number in range:[0 - 63]
+             1  :    |   (When 2D view is selected)
+        LSB  1  : ---+
+
+    ####################################PIXEL_127_ALPHA#
+
+*** ************************************************ **/
+//:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE:EXTRACTED_COMMENTS://

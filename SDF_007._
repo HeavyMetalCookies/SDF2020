@@ -1,0 +1,640 @@
+//: Voxel Renderer For Utility Patents
+//: SOURCE_URL: https://pastebin.com/RuZCTEhw
+//: ALIAS__URL: https://tinyurl.com/SDF-007
+//: On My Hard Disk As: SC_FILES\MATH\SDF\MY_SHADE\SDF_007._
+
+//: Abbreviations:
+//: f : fragment
+//: p : percent (Never Position, use C for coord)
+//: c : coordinate
+//: r : ray
+//: n : normal, for directions.
+//: d : distance. NEVER DIRECTION.( use: n:normal )
+
+//: Identifiers:
+//: CTO: Convert_TO
+//: rwC: RayWorldCoord
+//: rwN: RayWorldNormal
+//: f_p: FragPercent
+//: f_c: FragCoord (With Discrete Pixel Coords)
+//:                (instead of pixel centers  )
+//: dad: Distance_And_inDEX 
+//:      Index is 1D index of XYZ voxel tile
+//:      coordinate.
+//: vat: Voxel_Array__of__Tiles
+
+//:These defines are for ray marching when using
+//:fragment coordinates as our coordinate space.
+#define MAX_STE 1000   //:Max Steps
+#define MIN_DIS 0.02   //:Min Distance (SurfaceDist)
+#define MAX_DIS 1000.0 //:Max Distance
+
+//:Number of tiles on each axis:
+#define NTX  8  //:Num_Tiles (   in_voxel_map )
+#define NTY  4  //:Num_Tiles (   in_voxel_map )
+#define NTZ  3  //:Num_Tiles (   in_voxel_map )
+
+#define NPX  16 //:Num_Pixels_X( in_a_tile    )
+#define NPY  16 //:Num_Pixels_Y( in_a_tile    )
+#define NPZ  16 //:Num_Pixels_Z( in_a_tile    )
+
+//:Total__number_of__Pixels__in_entire_voxel_map
+#define TPX  ( NTX * NPX ) //: Total_Pixels_X
+#define TPY  ( NTY * NPY ) //: Total_Pixels_Y
+#define TPZ  ( NTZ * NPZ ) //: Total_Pixels_Z
+
+#define _ 0                                          
+#define X 1                                          
+int vat[ NTX * NTY * NTZ ]=int[ 8 * 4 * 3 ](                 
+    
+//:Highest Z Cross Section Is First Tile Map
+//: 1 2 3 4 5 6 7 8        --- ---------------------
+    X,X,X,X,X,X,X,X, //: 1  |             ^
+    X,_,_,_,_,_,_,X, //: 2  | Z == 0      |
+    X,_,_,_,_,_,_,X, //: 3  |             |
+    X,X,X,X,X,X,X,X, //: 4  |             |
+//:                        ---            |
+//: 1 2 3 4 5 6 7 8        ---        Cross Sections
+    X,_,_,_,_,_,_,X, //: 1  |         Can be thought
+    _,_,_,_,_,_,_,_, //: 2  | Z == 1  of as differ-
+    _,_,_,_,_,_,_,_, //: 3  |         -ent 2D
+    X,_,_,_,_,_,_,X, //: 4  |         tilemaps. 
+//:                        ---            |
+//: 1 2 3 4 5 6 7 8        ---            |
+    X,_,_,_,_,_,_,X, //: 1  |             |
+    X,_,_,_,_,_,_,X, //: 2  | Z == 2      |
+    X,_,_,_,_,_,_,X, //: 3  |             |
+    X,_,_,_,_,_,_,X  //: 4  |             V
+//:                        --- ---------------------
+);                                                 
+#undef  _                                             
+#undef  X  
+
+    struct SDF_DAD{
+
+        vec4  d_S;
+        //:   d_S.x : Distance From x edges.
+        //:   d_S.y : Distance From y edges.
+        //:   d_S.z : Distance From z edges.
+        //:   d_S.w : Distance From Entire Volume
+
+        float dex;
+
+    };
+
+//:INTERPOLATE:3D:===============================://
+
+    vec3 I3D(
+        vec3  c_1 //:Starting Point (  0%)
+    ,   vec3  c_2 //:Ending   Point (100%)
+    ,   float per //:Percent as 0.0 to 1.0
+    )   
+    {
+        return(vec3(
+            c_1.x + ((c_2.x - c_1.x)*per)
+        ,   c_1.y + ((c_2.y - c_1.y)*per)
+        ,   c_1.z + ((c_2.z - c_1.z)*per)
+        ));;
+    }
+
+//:===============================:INTERPOLATE:3D://
+//:RAY_WORLD:(Camera):===========================://
+
+    vec3    f_p_CTO_rwC( vec2 f_p ){
+    vec3    /*OUT*/ rwC;
+
+        /** Z-DOWN ----------------------------- **/
+        /** Usually I like Z-UP, but it makes    **/
+        /** more Sense for Z-DOWN so POSITIVE    **/
+        /** Z values map to POSITIVE Z tile      **/
+        /** values.                              **/
+        /** ------------------------------------ **/
+     
+        //:Minus 1.0 because first coord is [0,0]
+        float X = ( iResolution.x - 1.0  );
+        float Y = ( iResolution.y - 1.0  );
+
+        //:Camera Height Above Voxel Map Volume:
+        float H =max( X,Y );
+
+        //:Zero as underscore for cleanliness
+        float _ =( 0.0 );
+
+        //: Simple polygon above XY plane for now.
+        vec3 _A_ = vec3(  _ , _ , _-H ); //:TOP:LEF
+        vec3 _B_ = vec3(  X , _ , _-H ); //:TOP:RIG
+        vec3 _C_ = vec3(  _ , Y , _-H ); //:BOT:LEF
+        vec3 _D_ = vec3(  X , Y , _-H ); //:BOT:RIG
+
+        vec3 A_B = I3D( _A_ , _B_ , f_p.x );
+        vec3 C_D = I3D( _C_ , _D_ , f_p.x );
+             rwC = I3D( A_B , C_D , f_p.y );
+
+
+        //:TRAP_VALUE_Z_COORD:-------------------://
+
+            /** DEBUG:                  **/
+            /** rwC should be NEGATIVE  **/
+            /** rwC should be (_-H)     **/
+
+            if( rwC.z != _-H || rwC.z >= 0.0 ){
+                rwC.z = 666.0 ;
+            };;
+            if( rwC.x < 0.0 || rwC.y < 0.0 ){
+                rwC.z = 666.0 ; 
+            };;
+
+        //:-------------------:TRAP_VALUE_Z_COORD://
+
+    return( rwC /** RAY_WORLD:Coord:XYZ **/ );  
+    }
+    //:- - - - - - - - - - -- - - - - - - - - - -://
+    vec3    f_p_CTO_rwN( vec2 f_p , vec3 lac ){
+    vec3    /*OUT*/ rwN;
+
+        //:Not using look at coordinate XYZ
+        //:at this point in time.
+        if( length(lac) > 0.0 ){ /** NOOP **/ };
+
+        //:For now, keep simple. Later the
+        //:vector can conform to the normals of
+        //:the screen surface we are mapping
+        //:onto in the f_p_CTO_rwC function.
+
+        //:TEMP: Hardcode as pointing straight down.
+        rwN=normalize(vec3(
+            /* rwN.x */ 0.0 
+        ,   /* rwN.y */ 0.0 
+        ,   /* rwN.z */ 0.0 + 1.0 //:Z-DOWN
+        ));;
+
+    return( rwN /** RAY_WORLD:Normal(dir) **/ );
+    }
+//:===========================:RAY_WORLD:(Camera)://
+ 
+//: FragCoord(f_c) ConvertTo(CTO) FragPercent(f_p)
+vec2 f_c_CTO_f_p( vec2 f_c ){
+
+    #define MAXINDEX_X ( iResolution.x - 1.0 )
+    #define MAXINDEX_Y ( iResolution.y - 1.0 )
+
+        return(vec2( f_c.x / MAXINDEX_X
+                   , f_c.y / MAXINDEX_Y ));;
+
+    #undef  MAXINDEX_X  
+    #undef  MAXINDEX_Y  
+}
+
+//:min function taking 3 floats. If only called
+//:from ONE spot in code, keep formal parameter
+//:names IDENTICAL to actual parameter names.
+//:( AKA: param names === argument names )
+float min_f32_003( 
+    float d_x
+,   float d_y
+,   float d_z
+){
+    return( min( min(d_x,d_y) , d_z ) );
+}
+
+float max_f32_003( 
+    float d_x
+,   float d_y
+,   float d_z
+){
+    return( max( max(d_x,d_y) , d_z ) );
+}
+
+//:ctz: Return Closest To Zero.
+float sdf_ctz_f32_002(
+    float d_1 //:SIGNED INPUT
+,   float d_2 //:SIGNED INPUT
+){
+ 
+    float out_var;
+    if( abs(d_1) < abs(d_2) ){
+        out_var = ( d_1 );
+    }else{
+        out_var = ( d_2 );
+    };;
+
+    return( out_var );
+}
+float sdf_ctz_f32_003(
+    float d_1
+,   float d_2
+,   float d_3
+){
+    return sdf_ctz_f32_002(
+
+           sdf_ctz_f32_002( d_1 , d_2 )
+                                , d_3
+
+    );;
+}
+
+float sdf_neg_min_002(
+    float d_1
+,   float d_2
+){
+    float out_var;
+
+    if( d_1 < 0.0 && d_2 >= 0.0 ){
+        //:Negative Number Wins.
+        out_var = d_1;
+    }else
+    if( d_2 < 0.0 && d_1 >= 0.0 ){
+        //:Negative Number Wins.
+        out_var = d_2;
+    }else
+    if( d_1 >= 0.0 && d_2 >= 0.0 ){
+
+        //:Closet To Zero Wins:
+        out_var=( min( d_1 , d_2 ) );
+
+    }else
+    if( d_1 <= 0.0 && d_2 <= 0.0 ){
+
+        out_var=( max( d_1 , d_2 ) );
+    }else{
+        //:UNEXPECTED:EDCL
+        out_var = ( d_1 + d_2 ) / 2.0 ; 
+
+    };;
+
+    return( out_var );
+}
+
+float sdf_neg_min_003(
+    float d_1
+,   float d_2
+,   float d_3
+){
+    return sdf_neg_min_002(
+
+           sdf_neg_min_002( d_1 , d_2 )
+                                , d_3
+
+    );;
+}
+
+//: When ray marching need to know both the      ://
+//: DISTANCE to geometry, and what voxel cell    ://
+//: we are inside of. Knowing the voxel cell     ://
+//: will allow us to figure out local coordinates://
+//: within the cell as well as the material type ://
+//: assigned to that well.                       ://
+SDF_DAD    sdf_Get_dad( vec3 xyz ){
+SDF_DAD            dad             ;
+                   dad.d_S.w = 0.0 ;
+                   dad.dex   = 0.0 ;
+                   //:d_S: Distance To Geom Surf
+                   //:dex: Voxel Cell XY as index           
+
+    //:Determine What Tile XYZ you are in.
+    //:To simplify problem, imagine an infinite
+    //:voxel grid, and your model DEFAUTLING
+    //:to having it's origin voxel at [0,0,0]
+    //:in this infinite grid. We can translate
+    //:it later, but right now keep a fixed 
+    //:origin. Where voxel [0,0,0]'s top-left-back
+    //:is at xyz( 0, 0, 0 ) in our world space.
+
+    //:What is the size of each voxel in world
+    //:space units? World space units are in 
+    //:frag coords, so think of voxel as 3D tile
+    //:who's size is measured in [pixels/frags].
+    //:Lets say... 16-x-16-x-16 pixels because
+    //:it will be easy to hard code small pieces
+    //:of art for each material type later.
+    //:Material types being associated with the
+    //:tile type stored in[  vat   ].
+
+    #define F32_TPX  float( TPX )
+    #define F32_TPY  float( TPY )
+    #define F32_TPZ  float( TPZ )
+
+    //# THIS DISTANCE CALCULATION IS WRONG!!!!!  #//
+    //# Faulting Logic. Think it over....        #//
+    //# Try again tomorrow maybe?                #//
+    //:Distance_Calc:----------------------------://
+        float d_x,d_y,d_z;
+        
+        #define X xyz.x
+        #define Y xyz.y
+        #define Z xyz.z
+        
+        //: d_x = min( abs(X) , abs(X - F32_TPX ) );
+        //: d_y = min( abs(Y) , abs(Y - F32_TPY ) );
+        //: d_z = min( abs(Z) , abs(Z - F32_TPZ ) );
+
+        #define C sdf_neg_min_002
+        d_x =   max( 
+            0.0 - X , X - (F32_TPX - 1.0)
+        );;
+        d_y =   max( 
+            0.0 - Y , Y - (F32_TPX - 1.0) 
+        );;
+        d_z =   max( 
+            0.0 - Z , Z - (F32_TPX - 1.0)
+        );;
+        #undef  C
+
+        #undef  X  
+        #undef  Y  
+        #undef  Z  
+        
+        #define MAX_003 max_f32_003
+        #define MIN_003 min_f32_003
+
+            dad.d_S.x = d_x ;
+            dad.d_S.y = d_y ;
+            dad.d_S.z = d_z ;
+            dad.d_S.w = MIN_003( 
+                abs( d_x )
+            ,   abs( d_y )
+            ,   abs( d_z )
+            );;
+
+        #undef  MAX_003
+        #undef  MIN_003
+    //:----------------------------:Distance_Calc://
+
+    //:[HACK]:Round to zero if close enough:
+    if( abs(xyz.x) <= 0.0008 ){ xyz.x = 0.0; };
+    if( abs(xyz.y) <= 0.0008 ){ xyz.y = 0.0; };
+    if( abs(xyz.z) <= 0.0008 ){ xyz.z = 0.0; };
+    
+    if( xyz.x < 0.0   
+    ||  xyz.y < 0.0
+    ||  xyz.z < 0.0 //:Z-AXIS:THIS_IS_A_PROBLEM_HERE
+    ){
+        //:Negative Out Of Bounds Debugging:
+        dad.dex = float( 0.0 - 222.0 );
+    }else
+    if( xyz.x >= F32_TPX  
+    ||  xyz.y >= F32_TPY  
+    ||  xyz.z >= F32_TPZ  
+    ){  //:Outside of voxel map bounds:
+
+        /** Return distance to entire voxel map, **/
+        /** rather than distance to a specific   **/
+        /** tile in tilemap.                     **/
+
+        dad.dex = float( 0 - 1 );
+        //: dex: Negative For Invalid Voxel
+        //: ---: Cell since outside bounds.
+
+
+    }else{ //:Inside voxel map bounds.
+
+        //:TEMP_NOTE: #DIVIDE_AND_CONQUERE#
+        //:Before we worry about the individual
+        //:voxel tiles, lets make sure we can
+        //:render the entire voxel volume as a
+        //:cube. 
+
+        //:[TEMP]:[HACK]:
+        //: If we are inside bounding voxel tilemap,
+        //: always return tile #1. Change this once
+        //: we confirm the volume looks correct.
+        dad.dex =float( 1 ); 
+
+    };;
+    #undef  F32_TPX   //:Float32:Total_Pixels_X
+    #undef  F32_TPY   //:Float32:Total_Pixels_Y  
+    #undef  F32_TPZ   //:Float32:Total_Pixels_Z   
+
+return( dad );
+}
+
+vec4 sdf_RenderScene( vec3 rwC , vec3 rwN ){ 
+vec4 /** OUTPUT_VAR **/ col=vec4(1,0,0, 1.0);
+
+    //:xyz coordinate of point sliding along
+    //:ray using point normal form to move it.
+    vec3  xyz=vec3( rwC ); 
+
+    float d_S            ; //:UNKNOWN_when_declared
+    float d_O = 0.0      ; //:Distance__from__Origin
+
+    //:Distance_AND_tileinDEX
+    SDF_DAD  dad;
+
+    //:Thought: Use DECIMAL portion to get the
+    //:         local percentage coordinates within
+    //:         voxel cell identified by integer
+    //:         portion of[ dex ].
+    float dex = 0.0 - 777.0; //:voxel_cell_1d_inDEX
+
+    //:Ray marching loop: ( Raymarch into scene )
+    for( int i = 0; i < MAX_STE; i++ ){
+
+        //:First Used Value:[ xyz === rwC ]
+        xyz = rwC + ( rwN * d_O );
+
+        dad = sdf_Get_dad( xyz );
+        d_S = dad.d_S.w  ;
+        dex = dad.dex; 
+
+        //: At THIS POINT IN TIME:
+        //: d_S & d_O agree with each other.
+
+        //:Lets not worry about off-by-1 errors
+        //:here. Tolerances are mostly a rough
+        //:art form than an exact value.
+        if( d_S <= MIN_DIS ){ 
+
+            if( d_S >= 0.0 ){
+
+                xyz = xyz + ( rwN * (d_S*1.0) );
+                dad = sdf_Get_dad( xyz );
+                d_S = dad.d_S.w;
+                dex = dad.dex;
+            };;
+
+            break;
+        }else
+        if( d_O >= MAX_DIS ){
+            break; //:Way off in outer space.
+        };;
+
+        //: Prep for next loop iteration.
+        //: d_S & d_O no longer agree.
+        d_O = d_O + d_S ;
+
+    };;
+
+        //:xyz + ( rwN
+
+
+    float min_voxel_side_length_2d=(
+        float( TPX )
+    ,   float( TPY )
+    //: float( TPZ ) REMOVED Z ://
+    );;
+
+    //: ( d_S == dgs )                           ://
+    //: SDF_007._ : d_S                          ://
+    //: SDF_006._ : dgs (dist_from_geom_surface )://
+    //:                                          ://
+    //:We want a value we can multiply light     ://
+    //:vector with. So invert distance value     ://
+    //:& clamp distance value in [0,1] range.    ://
+    float hit =( 1.0 -
+
+        max(0.0, min(1.0, 
+
+            //: Gradate The Hit Volume:
+            min( abs(dad.d_S.x) 
+            ,    abs(dad.d_S.y) )
+
+            / 
+
+            ( min_voxel_side_length_2d / 2.0 )
+
+        ) ) 
+
+    );;
+
+    //:Light Intensity will consist of
+    //:RGB diffuse and a self-illumination value
+    //:to allow materials to emit light in the
+    //:future.
+    vec4  l_i ; //:= vec4(0,1,0,1);
+
+    //: Change Material Type:
+    if( int( dex ) ==  int( 777.0 )  ){
+
+        /** Trap Value To Indicate Error **/
+        /** DARK_RED: ERROR **/
+        l_i.x = 0.5; //: R
+        l_i.y = 0.0; //: G
+        l_i.z = 0.0; //: B
+        l_i.w = 1.0; //: L self illumination 
+
+    }else
+    if( int( dex ) == int( 0.0 - 222.0 ) ){
+    
+        if( d_S >= 0.0 ){
+
+            //:Strobbing pixel means you are close
+            //:enough to the volume but on the
+            //:WRONG FUCKING SIDE OF IT.
+            //:Negative out of bounds:
+            l_i.x = mod( iTime * 16.0 , 1.0 );
+            l_i.y = mod( iTime * 16.0 , 1.0 );
+            l_i.z = mod( iTime * 16.0 , 1.0 );
+            l_i.w = 1.0; //: L self illumination 
+
+        }else{
+
+            //:Negative out of bounds:
+            l_i.x = 0.0; //: R
+            l_i.y = 0.0; //: G
+            l_i.z = 0.0; //: B
+            l_i.w = 1.0; //: L self illumination 
+
+        };;
+
+    }else
+    if( int( dex ) < 0 ){
+
+        //:Out of bounds material is BLUE
+        l_i.x = 0.1; //: R
+        l_i.y = 0.1; //: G
+        l_i.z = 1.0; //: B
+        l_i.w = 1.0; //: L self illumination 
+
+    }else
+    if( int( dex ) == 1 ){
+
+        //:Only known material is GREEN for now.
+        l_i.x = 0.0; //: R
+        l_i.y = 1.0; //: G
+        l_i.z = 0.0; //: B
+        l_i.w = 1.0; //: L self illumination 
+
+    }else{
+        //:Unknown Material Type : ORANGE
+        l_i.x = 1.0; //: R
+        l_i.y = 0.5; //: G
+        l_i.z = 0.0; //: B
+        l_i.w = 1.0; //: L self illumination 
+    };;
+
+    //:DEBUG: Strobe if distance from surface
+    //:       is POSITIVE. We want to be slightly
+    //:       inside, never slightly outside.
+    if( d_S > 0.0 ){
+        l_i = l_i * ( cos( iTime * 8.0 ) );
+    };;
+
+    //:AKA: col = hit * l_i
+    col = vec4(
+        hit * l_i.x
+    ,   hit * l_i.y
+    ,   hit * l_i.z
+    ,   hit * l_i.w
+    );;
+
+
+    //:Lighting
+
+    return( col /** OUTPUT_VAR **/ );
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+    //:f_c:FragCoord_With_Graphics_Origin_Top_Left:
+    //:DISCRETE_X and DESCRETE_Y used to convert
+    //:from opengl pixel center model to raster
+    //:graphics discrete pixel model.
+    #define DISCRETE_X (   fragCoord.x - 0.5 )
+    #define DISCRETE_Y (   fragCoord.y - 0.5 ) 
+    #define MAXINDEX_Y ( iResolution.y - 1.0 )
+    vec2 f_c =vec2(
+        (     0.0      + DISCRETE_X  )
+    ,   (  MAXINDEX_Y  - DISCRETE_Y  )
+    );;
+
+    #undef  DISCRETE_X 
+    #undef  DISCRETE_Y 
+    #undef  MAXINDEX_Y
+
+    //:Figure out current camera ray. Abstract
+    //:the surface we are mapping ray coords
+    //:onto into functions so that we may easily
+    //:edit the functions to wrap the camera 
+    //:around a cylinder if we want.
+    vec3  lac; //:Look_At_Coordinate
+    vec2  f_p; //:FragPer:(2d mapping onto 3d plane)
+    vec3  rwC; //:Ray: COORD XYZ
+    vec3  rwN; //:Ray: NORM(dir)
+
+    lac = vec3( 0,0,0 );
+    f_p = f_c_CTO_f_p( f_c       ); 
+    rwC = f_p_CTO_rwC( f_p       ); 
+    rwN = f_p_CTO_rwN( f_p , lac ); 
+
+    //: f_p : Looks_Correct , 100% confident
+    //: rwC : Looks_Correct , 100% confident
+    //: rwN : Looks_Correct , 100% confident
+
+   //: fragColor=vec4( 
+   //:     rwC.x / iResolution.x
+   //: ,   rwC.y / iResolution.y
+   //: ,   0.0 //:BLUE
+   //: ,   1.0 //:Alpha
+   //: );;
+
+    if( rwC.z == 666.0 ){ //:Trap Value
+
+        fragColor=vec4(1,0,1, 1.0 );
+
+    }else{
+
+        fragColor = sdf_RenderScene( rwC , rwN );
+
+    };;
+}

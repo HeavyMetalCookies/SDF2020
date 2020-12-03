@@ -1,0 +1,184 @@
+/** ******************************************************** ***
+
+
+
+    SOURCE_____CODE : tinyurl.com/SDF-005
+
+
+
+    FILE_______NAME : SDF_005._ 
+    PASTEBIN__TITLE : SDF_005  
+    PASTEBIN____URL : https://pastebin.com/NW1vAsaA
+    TWITCH______URL : www.twitch.com/kanjicoder
+    TWITTER_____URL : twitter.com/MakeGamesHappen 
+    DESMOS____GRAPH : NO GRAPHS TODAY
+
+*** ******************************************************** **/
+
+#define MAX_STE ( 100   )
+#define MIN_DIS ( 0.02  )
+#define MAX_DIS ( 100.0 )
+
+    #define I32 int                     
+    #define _ 0                                          
+    #define X 1                                          
+    I32 til_arr[ 25 * 7 ]=I32[ 25 * 7 ](                 
+    _,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,  
+    X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,  
+    X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,  
+    X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,  
+    X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,  
+    X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,  
+    X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X,X   
+    );                                               
+    #undef  _                                             
+    #undef  X                                             
+    #undef  I32    
+
+float sdf_Sphere( vec3 org_geo , vec3 pop ){
+
+    vec4  obj = vec4( org_geo    ,0.5 ); //: w == radius
+    float dis = length( obj.xyz - pop.xyz ) - obj.w;
+    return( dis );
+
+}
+
+float sdf_Scene( vec3 org, vec3 ray, vec3 pop ){
+
+    vec3 org_geo = vec3( 4.0,0,0 );
+
+    //:return( sdf_Sphere( org_geo , pop ) );  
+
+    //:Only works for orthographic camera. Niave Calc.\
+    //:Must convert [ u_v ] back to frag coords.
+    float    p_x  = ( org.x * iResolution.y );
+    float    p_y  = ( org.y * iResolution.y );
+
+            
+    //: tpW : tile_wid_in_pixels                         
+    //: tpH : tile_hig_in_pixels                         
+    int ntX    = 25; //:Number_Of_Tiles:X-axis           
+    int ntY    =  7; //:Number_Of_tiles:Y-axis           
+    int tpW    = int( iResolution.x / float( ntX )  );          
+    int tpH    = int( iResolution.y / float( ntY )  );          
+    int tile_x = int( p_x / float( tpW )  );           
+    int tile_y = int( p_y / float( tpH )  );           
+    
+
+    if( tile_x < 0 || tile_x >= 25 ||
+        tile_y < 0 || tile_y >=  7 
+    ){  //:Out Of Bounds
+        return( MAX_DIS + 100.00 );
+    }else{
+
+         
+
+        int dex_til = tile_x + ( ntX * tile_y); 
+        int tile_value = til_arr[ dex_til ];                
+        if( tile_value > int(0) ){                          
+                     
+            float    f_tpW = 1.0;
+            float    f_tpH = 1.0;
+            float f_tile_x = float(tile_x);
+            float f_tile_y = float(tile_y);
+            
+            org_geo.x = float( ( f_tile_x * f_tpW ) + (f_tpW/2.0) );
+            org_geo.y = float( ( f_tile_y * f_tpH ) + (f_tpH/2.0) );
+            org_geo.z = float(                  0                 );
+        
+            return( sdf_Sphere( org_geo , pop ) );  
+
+        }else{      
+            //: NO GEOMETRY IN CELL                                
+            //return( MAX_DIS + 100.00 );
+          //  return( sdf_Sphere( org_geo , pop ) );  
+        };;    
+
+    };;
+
+
+    
+
+}
+
+vec3 sdf_EstNorm( vec3 org, vec3 ray, vec3 pop ){ 
+
+    #define  S sdf_Scene
+    #define  E 0.0001
+    #define  X pop.x
+    #define  Y pop.y
+    #define  Z pop.z
+    #define  O org
+    #define  R ray
+    return( normalize(vec3(
+
+        S(O,R,vec3(X+E,Y  ,Z  ))  -  S(O,R,vec3(X-E,Y  ,Z  )) 
+    ,   S(O,R,vec3(X  ,Y+E,Z  ))  -  S(O,R,vec3(X  ,Y-E,Z  )) 
+    ,   S(O,R,vec3(X  ,Y  ,Z+E))  -  S(O,R,vec3(X  ,Y  ,Z-E)) 
+
+    )));;;
+    #undef   S
+    #undef   E
+    #undef   X
+    #undef   Y
+    #undef   Z
+    #undef   O
+    #undef   R
+}
+
+vec4 sdf_Render( vec3 org , vec3 ray ){
+
+    /** 1: Ray March           **/
+    /** 2: Calculate Lighting  **/
+
+    vec3   pop; //:point_on_path
+    float  d_o; //:distance_from_origin
+    float  d_s; //:distance_from_surface
+
+    d_o = 0.0;
+
+    for( int i = 0; i <= MAX_STE ; i++ ){
+
+        pop = org + ( ray * d_o );
+        d_s = sdf_Scene( org,ray,  pop );
+
+        if( d_s <= MIN_DIS || d_o >= MAX_DIS ){
+            break;
+        };;
+        
+        d_o += ( d_s ); //:March forward by[ d_s ].
+    };;
+
+    float hit = max(0.0,min(1.0,( 1.0 - d_s )));
+
+    vec3   l_p = vec3(cos(iTime*1.0)*100.0,0,20.0); //:light_pos
+    vec3   l_n = normalize( l_p - pop );
+    vec3   s_n = sdf_EstNorm( org,ray,pop );
+    float  g_i = 0.1; //:global_illumination
+    float  l_i = dot( l_n , s_n ); //:light_intensity.
+    vec3   l_t = vec3( 0 ); //:light_tuple
+
+    l_t.x =( l_i + g_i );
+    l_t.y =( l_i + 0.0 );
+    l_t.z =( l_i + 0.0 );
+ 
+
+    return( vec4( vec3( hit * l_t.xyz ) , hit ));
+
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+
+    vec2   u_v = (fragCoord-0.5*iResolution.xy)/iResolution.yy;
+    
+
+    //:    ray: Orthographic Camera Ray
+    vec3   ray = normalize( vec3( u_v.x , u_v.y , 0 - 1 ) );
+    vec3   org =            vec3( u_v.x , u_v.y , 0 + 9 );
+
+    vec4   col = sdf_Render( org , ray );
+
+
+    fragColor = col;
+}

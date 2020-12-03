@@ -1,0 +1,177 @@
+//[ THIS_FILE_IS[ SDF_019.COMMON._ ]                 ]//
+/** ************************************************ ***
+***                                                  ***
+***     Live Stream Of Me Working On This Code:      ***
+***                                                  ***
+*** ************************************************ ***
+
+                twitch.com/kanjicoder    
+
+*** ************************************************ ***
+***                                                  ***
+*** LIVE__________DEMO:  tinyurl.com/SDF-019-DEMO    ***
+*** SETUP________VIDEO:  tinyurl.com/SDF-019-SETUP   ***
+***                                                  ***
+***      SELF______URL:  tinyurl.com/SDF-019-COMMON  ***
+***      DOCUMENTATION:  tinyurl.com/SDF-019         ***
+***      SOURCE_COMMON:  tinyurl.com/SDF-019-COMMON  ***
+***      SOURCE_BUFFER:  tinyurl.com/SDF-019-BUFFER  ***
+***      SOURCE__IMAGE:  tinyurl.com/SDF-019-IMAGE   ***
+***                                                  ***
+*** ************************************************ **/
+//:INSTRUCTIONS:IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII://
+/** ************************************************ ***
+
+    Click And Drag on the canvas to set pixels.
+
+*** ************************************************ **/
+//:IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII:INSTRUCTIONS://
+//:MACROS:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM://
+ 
+    #define IV2 ivec2
+    #define IV3 ivec3
+    #define V_4  vec4
+    #define V_3  vec3
+    #define V_2  vec2
+    #define F32 float
+    #define I32   int
+    #define U32  uint
+
+//:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM:MACROS://
+//:DATA:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD://
+
+
+//:DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD:DATA://
+//:FUNC:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF://
+//:TILE_DATA_LAYOUT:=================================://
+
+IV3 v3d_CTO_xyc_256( IV3 v3d     ){
+
+    IV3 xyc_256; /**return:value**/
+
+    I32 v_x = v3d.x;
+    I32 v_y = v3d.y; 
+    I32 v_z = v3d.z;
+
+    //[  CODED_WHILE_LOOKING_AT[ #TILE_DATA_LAYOUT#  ]//
+
+    //+@SIXTEEN_FLOORS_OF_EACH_COLOR@+//
+    I32 csC = int(trunc( F32(v_z) / 16.0 ));
+    I32 csF =( csC * I32(16) );
+    I32 csL = v_z - ( csF );
+
+    //+@EACH_FLOOR_IS_64_BY_64@+//
+    //+@16_64X64_FLOORS_ON_4X4_GRID@+//
+    I32 csY = int(trunc( F32(csL) /        4.0 ));
+    I32 csX =                csL - ( csY *(4)   );
+
+    I32 coX = csX * I32(64);
+    I32 coY = csY * I32(64);
+
+    I32 p_x = coX + v_x; //: p_x = [ 0 -to- (256-1) ]
+    I32 p_y = coY + v_y; //: p_y = [ 0 -to- (256-1) ]
+
+    xyc_256=IV3( p_x , p_y, csC );
+    return( xyc_256 );
+
+} IV3 v_i_512_CTO_v3d( I32 v_i_512 ){
+
+    IV3 v3d; /** return:value **/
+
+    //:#WHY_VOB_DEX#://
+    //[  CODED_WHILE_LOOKING_AT[ #TILE_DATA_LAYOUT#  ]//
+
+    //:Map onto conceptual 512x512 bitmap, D01.
+    I32 p_y_512 = int(trunc( F32( v_i_512 ) / 512.0 ));
+    I32 p_x_512 = v_i_512 - ( p_y_512 * I32(512) );
+
+    //:What color floors are you on?
+    //:Find Cell Color Quadrant (csC):
+    I32 cqX = int(trunc( F32(p_x_512) / 256.0 ));
+    I32 cqY = int(trunc( F32(p_y_512) / 256.0 ));
+
+    //: True, but not needed here.
+    //: I32 csC = (cqY << 1 ) | ( cqX << 0 );
+    //: I32 csF = ( csC * I32( 16 ) );
+  
+    //:Map conceptual 512x512 XY to actual 256x256 XY.
+    I32 p_x_256 = p_x_512 - ( cqX * 256 );
+    I32 p_y_256 = p_y_512 - ( cqY * 256 );
+
+    //:Get 2D representation of your colored floors:
+    I32 csX = int(trunc( F32(p_x_256) / 64.0 ) );
+    I32 csY = int(trunc( F32(p_y_256) / 64.0 ) );
+
+    //: [v_x,v_y] is local coord inside [csX,csY] cell.
+    I32 v_x = p_x_256 - ( csX * I32(64) );
+    I32 v_y = p_y_256 - ( csY * I32(64) );
+
+    //: v_z is the INDEX value of [csX,csY]:
+    I32 v_z = ( csY * I32(4) ) + csX;
+
+    v3d = IV3( v_x , v_y , v_z );
+    return( v3d );
+
+}   U32 v3d_sam_CTO_vob( IV3 v3d , sampler2D sam ){
+
+    U32 vob ; /**return:value**/
+
+    IV3 xyc_256 = v3d_CTO_xyc_256( v3d );
+
+    I32 p_x = xyc_256.x;
+    I32 p_y = xyc_256.y;
+    I32 csC = xyc_256.z;
+
+    /** sam == iChannel0 in shadertoy. **/
+    V_4 c4d = texelFetch( sam,ivec2(p_x,p_y),0);
+
+    vob = U32(  c4d[ csC ] * 255.0 );
+
+//  if( U32( 0 ) == csC /** RED_BYTE **/ ){
+//
+//      vob = U32(  c4d.x * 255.0 );
+//
+//  }else
+//  if( U32( 1 ) == csC /** RED_BYTE **/ ){
+//
+//      vob = U32(  c4d.y * 255.0 );
+//
+//  }else
+//  if( U32( 2 ) == csC /** RED_BYTE **/ ){
+//
+//      vob = U32(  c4d.z * 255.0 );
+//
+//  }else
+//  if( U32( 3 ) == csC /** RED_BYTE **/ ){
+//
+//      vob = U32(  c4d.w * 255.0 );
+//
+//  }else{
+//      /** THIS IS AN ERROR **/
+//  };;
+    
+    return( vob );
+
+} U32 v_i_512_sam_CTO_vob(I32 v_i_512 , sampler2D sam){
+
+    U32 vob; /**return:value**/
+
+    IV3 v3d = v_i_512_CTO_v3d( v_i_512 );
+     
+    vob = v3d_sam_CTO_vob( v3d , sam) ;
+    return( vob );
+
+} //:===============================:TILE_DATA_LAYOUT://
+//:FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF:FUNC://
+//:MACROS:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM://
+ 
+    #undef  IV2  
+    #undef  IV3  
+    #undef  V_4  
+    #undef  V_3  
+    #undef  V_2  
+    #undef  F32  
+    #undef  I32  
+    #undef  U32  
+
+//:MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM:MACROS://

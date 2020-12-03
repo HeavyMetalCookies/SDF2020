@@ -1,0 +1,191 @@
+/** ******************************************************** ***
+
+
+
+    SOURCE_____CODE : tinyurl.com/SDF-004
+
+
+
+    FILE_______NAME : SDF_004._ 
+    PASTEBIN__TITLE : SDF_004  
+    PASTEBIN____URL : https://pastebin.com/ybuKVRMG 
+    TWITCH______URL : www.twitch.com/kanjicoder
+    TWITTER_____URL : twitter.com/MakeGamesHappen 
+    DESMOS____GRAPH : www.desmos.com/calculator/h7rkp6mhpx
+
+*** ******************************************************** **/
+
+#define MAX_STP  100  /** MAX_STEPS **/
+#define MIN_LEN  0.02 /** SURF_DIST **/
+#define MAX_LEN  100.0 
+
+float sdf_SmoothMinAttempt( float a , float b ){
+
+    float u = min(a,b)                              ;
+    float m = (max(0.0,min(2.0,((a-b)+1.0)))) / 2.0 ; 
+    float n = m * (1.0-m)                           ;
+    float w = (1.0-(n*4.0))                         ;
+    float q = (a*(1.0-m))+(b*(0.0+m))               ;
+    float z = q - ((q-u)*w )                        ;
+
+    return( z );
+
+}
+
+float sdf_Box( vec3 pop, vec3 pos, vec3 dim ){
+
+    float x_dist = length( pop.x - pos.x ) - (dim.x/2.0) ;
+    float y_dist = length( pop.y - pos.y ) - (dim.y/2.0) ;
+    float z_dist = length( pop.z - pos.z ) - (dim.z/2.0) ;
+
+    return( max(max( x_dist , y_dist ), z_dist ) );
+}
+
+/** AKA: sdf_Scene **/
+float sdf_DistanceToNearestObject( vec3 pop ){
+
+    vec4  obj_001 = vec4( 0+1,0,0,   1   ); //:w == radius
+    vec4  obj_002 = vec4( 0-1,0,0,   1   ); //:w == radius
+    
+
+    float t = ( iTime / 10.0 ); //:iTime:Slow_Motion
+    obj_001.x = sin( t      )*2.0;
+    obj_002.x = sin( t * 2.0)*2.0;
+
+    float dis_001 = length( obj_001.xyz - pop ) - obj_001.w;
+    float dis_002 = length( obj_002.xyz - pop ) - obj_002.w;
+    float dis_003 = sdf_Box( pop, vec3(0-3,0+1,0), vec3(1) );
+
+    return( 
+        sdf_SmoothMinAttempt(
+        sdf_SmoothMinAttempt( dis_001 , dis_002 )
+       ,                                dis_003
+        )
+    );;
+   
+}
+
+vec3 sdf_GetLight( vec3 pop /** AKA: surface XYZ **/ ){
+
+    //:  l_p : light_position
+    //:  l_v : light_vector
+    //:  l_n : light_normal
+
+    //:LIGHT_NORMAL:-----------------------------------------://
+    vec3 l_p = vec3( 0,0,9 ) +vec3(
+        cos( iTime ) * 6.0
+    ,   sin( iTime ) * 6.0
+    ,    0
+    );;
+    vec3 l_v = ( l_p - pop );
+    vec3 l_n = normalize( l_v );
+    //:-----------------------------------------:LIGHT_NORMAL://
+    //:SURFACE_NORMAL:---------------------------------------://
+    
+        #define S sdf_DistanceToNearestObject
+        #define E 0.0001
+        #define X pop.x
+        #define Y pop.y
+        #define Z pop.z
+        vec3 s_n =normalize(vec3(
+           S(vec3(X+E,Y  ,Z  )) -  S(vec3(X-E,Y  ,Z  ))  //:X
+        ,  S(vec3(X  ,Y+E,Z  )) -  S(vec3(X  ,Y-E,Z  ))  //:Y
+        ,  S(vec3(X  ,Y  ,Z+E)) -  S(vec3(X  ,Y  ,Z-E))  //:Z
+        ));;
+        #undef  S
+        #undef  E
+        #undef  X
+        #undef  Y
+        #undef  Z
+    //:---------------------------------------:SURFACE_NORMAL://
+    //:LIGHT_INTENSITY:--------------------------------------://
+
+        float   l_i ; //:l_i:light_intensity
+        vec3    l_t ; //:l_t:light_tuple
+        float   g_i ; //:g_i:global_illumination
+
+                g_i = 0.01;
+                l_i = dot( l_n , s_n );
+
+                //:IF statement currently un-necessary.
+                if( l_i <= 0.0 ){
+                    l_t = vec3( 0.0+g_i , 0.0+g_i ,0.0+g_i );
+                }else{                                   
+                    l_t = vec3( l_i+g_i , l_i+g_i ,l_i+g_i );
+                };;
+
+    //:--------------------------------------:LIGHT_INTENSITY://
+ 
+    return( l_t ); //:Light_Triplet
+
+}
+
+vec3 sdf_Render( vec3 cam_org , vec3 ray_dir ){
+
+    //:RAY_MARCH:--------------------------------------------://
+
+        float     d_p = 0.0;     //:d_p:Distance_From:pop
+        float     dfc = 0.0;     //:dfc:Distance_From_Camera
+        vec3      pop = cam_org; //:pop:Point_On_Path
+
+        for( int i = 0; i <= MAX_STP; i++ ){
+            pop = cam_org + (ray_dir*dfc);
+            d_p = sdf_DistanceToNearestObject( pop );
+            if( d_p <= MIN_LEN || dfc >= MAX_LEN ){ break; }
+            dfc += d_p;
+        };;
+
+    //:--------------------------------------------:RAY_MARCH://
+
+    //: hit == 1.0 for intersecting scene geom
+    //: hit == 0.0 for missing      scene geom
+    float d_p_bounded = max(0.0,min(1.0,d_p));
+    float hit = ( 1.0  -  d_p_bounded  );;
+    vec3  l_t = sdf_GetLight( pop ); //:l_t:light_triplet
+
+    return( float(hit) * l_t.xyz );
+    //:return( vec3(1.0) );
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+
+    vec2 uv = (fragCoord - .5*iResolution.xy)/iResolution.yy;
+
+    //: float len = length( uv );
+    //: fragColor = vec4(  len , 0.0 , 0.0 , 1.0 );
+
+    //:   cam_org : Origin of camera looking down on world.
+    //:   glass_d : Glass's distance in front of camera
+    //:   glass_c : Glass's phosphore cell world position.  
+    //:   ray_dir : Camera To The Phosphoric Glass
+    vec3  cam_org = vec3( 0,0,9 );
+    float glass_d = 3.0;
+    vec3  glass_c =vec3( uv.x, uv.y, cam_org.z - glass_d );
+    vec3  ray_dir = normalize( glass_c - cam_org );
+
+    fragColor = vec4( sdf_Render( cam_org , ray_dir ) , 1.0 );
+
+
+}
+
+
+//: HOW IS THIS VALID SYNTAX?
+//: vec3  glass_c =( uv.x, uv.y, cam_org - glass_d );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

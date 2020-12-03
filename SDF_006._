@@ -1,0 +1,274 @@
+/** ******************************************************** ***
+    GET THE SOURCE CODE:
+
+       HERE :   
+
+            https://tinyurl.com/SDF-006
+
+    OR HERE : 
+
+            https://pastebin.com/fnBpxdic
+
+
+    REFERENCE_MATERIAL:
+        URL_001: http://web.engr.oregonstate.edu/
+                 ~mjb/cs519/Handouts/Shaders.2pp.pdf
+
+*** ******************************************************** **/
+//: -------------------------------------------------------- ://
+//: SDF_006: A 3D tilemap using grid collision to            ://
+//:          efficiently render the geometry.                ://
+//:          Will be using orthographic camera to simplify   ://
+//:          the grid collision math.                        ://
+//: -------------------------------------------------------- ://
+
+#define MAX_STE 1000
+#define MIN_DIS 0.02
+#define MAX_DIS 1000.0
+
+#define NTX 25
+#define NTY  7 
+
+//: - - - - - - - - - - - - - ---- - - - - - - - - - - - - - ://      
+
+#define _ 0                                          
+#define X 1                                          
+int til_arr[ NTX * NTY ]=int[ 25 * 7 ](                 
+_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,   
+_,X,X,_,_,X,X,X,_,X,X,X,_,X,X,X,_,X,X,X,_,_,X,X,_,   
+_,X,_,X,_,X,_,_,_,X,_,_,_,_,_,_,_,_,_,_,_,X,_,_,_,   
+_,X,_,X,_,X,X,_,_,X,X,X,_,X,X,X,_,X,X,X,_,X,X,_,_,   
+_,X,_,X,_,X,_,_,_,X,_,_,_,X,_,X,_,X,_,X,_,X,_,X,_,   
+_,X,X,_,_,X,X,X,_,X,_,_,_,X,X,X,_,X,X,X,_,_,X,_,_,   
+_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_    
+);                                                 
+#undef  _                                             
+#undef  X  
+
+//: - - - - - - - - - - - - - ---- - - - - - - - - - - - - - ://                                           
+   
+float sdf_GetDist( int dex , vec3 pop )
+{
+    float dgs = 0.0; //:Distance(from)Geometry_Surface
+
+    //:TODO: Choose different SDF to render based on
+    //:      the value of dex.
+
+    float til_wid =   ( iResolution.x /  float( NTX ) );
+    float til_hig =   ( iResolution.y /  float( NTY ) );
+    float til_dep =   min( til_wid , til_hig );
+
+    float c_x = til_wid / 2.0;
+    float c_y = til_hig / 2.0;
+    float c_z = til_dep / 2.0;
+
+    //: Safe radius gauranteed not to exceed the
+    //: bounding volume.
+    //:   rad = min( c_x , c_y , c_z );
+    float rad = min( c_z , min(c_x,c_y) );
+
+    int til_val = til_arr[ dex ];
+    if( 0 == til_val || 0 != til_val ){
+
+        vec4 obj_001 = vec4( c_x , c_y , c_z , rad );
+        dgs = length( pop - obj_001.xyz ) - obj_001.w ;
+
+    };;
+
+    return( dgs );
+
+}
+
+vec4 sdf_RenderCell( int dex , vec3 L_C , vec3 ray )
+{
+
+    float til_wid =   ( iResolution.x /  float( NTX ) );
+    float til_hig =   ( iResolution.y /  float( NTY ) );
+    float til_dep =   min( til_wid , til_hig );
+
+    /** Geometry Center Within[ grid/tile ]Cell
+    vec3 geo_cen = vec3(
+        til_wid/2.0
+    ,   til_hig/2.0
+    ,   til_dep/2.0
+    );;
+
+    //:RAY_MARCH_RIGHT_FUCKING_HERE:-------------------------://
+
+        /** ************************************************ **/
+        /** NOTE: L_C scans over the top of the cell.        **/
+        /**       L_C must NOT be fixed at center of the     **/
+        /**       the cell for each fragment of the tile     **/
+        /**       being rendered.                            **/
+        /** ************************************************ **/
+
+        float d_C = 0.0 ; //:Distance From Camera
+        vec3  pop = L_C;
+        float dgs ;;;;;; //:Distance From Geometry Surface
+
+        for( int i = 0 ; i <= MAX_STE ; i++ ){
+
+            pop = L_C + ( ray * d_C );
+            dgs = sdf_GetDist( dex , pop );
+            
+            if( dgs <= MIN_DIS || d_C >= MAX_DIS ){ break; };
+
+            d_C += dgs ;
+        };;
+
+    //:-------------------------:RAY_MARCH_RIGHT_FUCKING_HERE://
+    //:CALCULATE_LIGHT_VALUE:--------------------------------://
+
+        //:position_light_in_GLOBAL_space:-------------------://
+        #define R_X iResolution.x
+        #define R_Y iResolution.y
+
+        vec3 glo_l_p =vec3( //:GLObal_Light_Position
+            ( R_X / 2.0) +( cos( iTime / 1.0 ) * (R_X/2.0) )
+        ,   ( R_Y / 2.0) +(         0.0               )
+        ,   til_dep      * 4.0
+        );;
+
+        vec3 loc_s_n; //:LOCal__Surface_Normal
+     //:vec3 glo_s_n; //:GLObal_Surface_Normal. NO_SUCH_THING://
+
+        #undef  R_X 
+        #undef  R_Y 
+        //:-------------------:position_light_in_GLOBAL_space://
+        //:estimate_CELL_LOCAL_surface_normal:---------------://
+        #define S sdf_GetDist
+        #define E 0.0001
+        #define X pop.x
+        #define Y pop.y
+        #define Z pop.z
+        #define D dex
+
+            //:loc_s_n: Local  coordinate space surface normal
+            //:glo_s_n: Global coordinate space surface normal
+            loc_s_n = normalize(vec3(
+                S(D,vec3(X+E,Y  ,Z  )) - S(D,vec3(X-E,Y  ,Z  ))        
+            ,   S(D,vec3(X  ,Y+E,Z  )) - S(D,vec3(X  ,Y-E,Z  ))          
+            ,   S(D,vec3(X  ,Y  ,Z+E)) - S(D,vec3(X  ,Y  ,Z-E))   
+            ));
+
+        #undef  S
+        #undef  E
+        #undef  X
+        #undef  Y
+        #undef  Z
+        #undef  D
+        //:---------------:estimate_CELL_LOCAL_surface_normal://
+        //:translate_to_get_GLOBAL_surface_normal:-----------://
+
+            //:Warning: 
+            //:Integer Division Is Still Integer Division
+            //:SEE[ URL_001 ]
+            #define F float
+            int   t_y  =int( trunc( F(dex) /   F(NTX)    ));
+            int   t_x  =(         (   dex -( t_y*NTX )   ));
+            #undef  F
+
+        //: WRONG! Surface normal does NOT need to be 
+        //: translated. The angles on the surface do not change
+        //: when you move the object.
+        //:    glo_s_n.x = loc_s_n.x + ( float(t_x) * til_wid );
+        //:    glo_s_n.y = loc_s_n.y + ( float(t_y) * til_hig );
+        //:    glo_s_n.z = loc_s_n.z + (  0.0 ); /** NOTRAN:Z **/
+        //:
+        //:    //:Maybe rounding errors?
+        //:    glo_s_n = normalize( glo_s_n );
+
+        //:-----------:translate_to_get_GLOBAL_surface_normal://
+        //:CALC_LIGHT_INTENSITY:-----------------------------://
+
+            vec3 glo_pop =vec3(
+                     pop.x + ( float(t_x) * til_wid ) 
+            ,        pop.y + ( float(t_y) * til_hig ) 
+            ,        pop.z + (    0.0   ) /** NOTRAN:Z **/
+            );;
+
+            //:   l_v: Light_Vector
+            //:   l_i: Light_Intensity
+            vec3  l_v = normalize( glo_l_p - glo_pop );  
+            float l_i = dot( loc_s_n , l_v );
+
+        //:-----------------------------:CALC_LIGHT_INTENSITY://
+
+    //:--------------------------------:CALCULATE_LIGHT_VALUE://
+
+    float hit =( 1.0 -  max(0.0, min(1.0, dgs ) ) );
+
+    vec4 col = vec4(
+        0.0
+    ,   0.0
+    ,   hit * l_i
+    ,   1.0
+    );;
+
+    return( col );
+}
+vec4 sdf_Render( vec3 cam, vec3 ray )
+{
+
+    vec4 col; /** Output Color Of This Function **/
+
+    float til_wid =   ( iResolution.x /  float( NTX ) );
+    float til_hig =   ( iResolution.y /  float( NTY ) );
+
+    int       t_x =int( cam.x / til_wid );
+    int       t_y =int( cam.y / til_hig );
+
+    int  dex = t_x + ( NTX * t_y );
+    
+    if( til_arr[ dex ] >= 1 ){
+
+        vec3 L_C =vec3(
+            cam.x - ( float(t_x) * til_wid )
+        ,   cam.y - ( float(t_y) * til_hig )
+        ,   cam.z + (      0.0       )
+        );;
+
+        col = sdf_RenderCell(
+            /** Use[ dex ] and NOT the tile value here. **/
+            /** This will allow us to do auto-tiling    **/
+            /** in the future.                          **/
+            dex //:<<<<< dex , NOT TILE VALUE !
+        ,   L_C //: [L]ocal to cell [C]amera Position.
+        ,   ray
+        );;
+
+    }else{
+
+        col = vec4( 0 , 0 , 0 , 1.0 );
+
+    };;
+    
+    return( col );
+
+}
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+  
+    vec2 f_c = vec2( 
+                (    0.0     )+ fragCoord.x
+               ,iResolution.y - fragCoord.y );;
+
+    
+    vec3 cam = vec3( f_c.x , f_c.y , iResolution.y );
+    vec3 ray = normalize(vec3( 0 , 0 , 0 - 1 ));
+    vec4 col ;
+
+    col = sdf_Render( cam , ray );
+    
+   
+//  col = vec4( 
+//          f_c.x / iResolution.x 
+//         ,f_c.y / iResolution.y 
+//         ,0.0
+//         ,1.0 //:ALPHA
+//  );;
+
+    // Output to screen
+    fragColor = col;
+}

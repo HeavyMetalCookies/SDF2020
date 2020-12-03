@@ -1,0 +1,113 @@
+
+//: https://pastebin.com/WxaJcuVf
+
+#define MAX_STEPS 100
+#define MIN_LEN   0.01  //:Minimum Surface Distance
+#define MAX_LEN   100.0 //:max distance from origin.
+
+float sdf_Scene( vec3 cur_org ){
+    
+    //:Using a TOP-DOWN camera. Z-UP.
+    vec4  obj_01 = vec4( 0-1,0,0,  1); //:w == sphere radius
+    vec4  obj_02 = vec4( 0+1,0,0,  1); //:w == sphere radius
+    obj_01.x += cos( iTime )*1.0;
+    obj_02.x += sin( iTime )*1.0;
+    
+    float dis_01 = length(obj_01.xyz - cur_org)-obj_01.w;
+    float dis_02 = length(obj_02.xyz - cur_org)-obj_02.w;
+    
+    return( min( dis_01 , dis_02 ) );
+}
+
+vec3 sdf_EstNorm( vec3 cur_org ){
+ 
+    	#define S sdf_Scene
+    	#define E 0.0001
+    	#define X cur_org.x
+    	#define Y cur_org.y
+    	#define Z cur_org.z
+
+    return(normalize( vec3(
+        
+        //:Hint: One Step Forward, Two Steps Back (+ - - )
+        //: POSITIVES          //:NEGATIVES
+        S(vec3( X+E , Y   , Z   ))   -    S(vec3( X-E, Y   , Z   ))
+       ,S(vec3( X   , Y+E , Z   ))   -    S(vec3( X  , Y-E , Z   ))
+       ,S(vec3( X   , Y   , Z+E ))   -    S(vec3( X  , Y   , Z-E ))
+        
+    )));;
+        
+        #undef  S
+        #undef  E
+        #undef  X
+        #undef  Y
+        #undef  Z
+}
+
+vec3 sdf_Light( vec3 cur_org ){
+    
+    vec3  lig_01 = vec3(0,0,3)+vec3(cos(iTime)*4.0,sin(iTime)*4.0,0);
+    vec3  l_n = normalize( lig_01 - cur_org );
+    vec3  s_n = sdf_EstNorm( cur_org );
+    float l_i = dot(l_n , s_n);
+    
+    return( vec3( max(0.1,l_i) ) );
+}
+
+vec3 sdf_March( vec3 org , vec3 dir ){
+ 
+    vec3  cur_org = org;
+    float cur_len = 0.0; //:distance to scene
+    float all_len = 0.0; //:Compounded distance from org(origin)
+    
+    for( int i = 0; i < MAX_STEPS ; i++ ){
+        
+        cur_org = org + (dir*all_len);
+        cur_len = sdf_Scene( cur_org );
+        if( cur_len <= MIN_LEN || all_len >= MAX_LEN ){ break; }
+        all_len += cur_len;
+    }
+    
+    ///** cur_len should be 1.0 for a hit.  **/
+    ///** cur_len should be 0.0 for a miss. **/
+    ///: too_niave_hit = float( 1.0 - cur_len );
+    float hit = (float( 
+        1.0 - max(0.0,min(   1.0,cur_len   ))
+    ));;
+   
+    vec3 light = sdf_Light( cur_org );
+    
+    return( vec3( hit * light ) );
+    
+}
+
+
+void mainImage( out vec4 fragColor, in vec2 fragCoord )
+{
+   
+    //: uv(s) in center of screen:
+    vec2 uv = (fragCoord - (0.5 * iResolution.xy)) / iResolution.yy;
+
+     
+    //: vec3 col = vec3( length( vec3(uv.x,uv.y,0) ) );
+    
+    vec3 org = vec3(0,0,9); //:Camera Origin is Electron Beam Source
+    vec3 pho = vec3(0,0,6); //:Phosphore Screen That Electrons Hit
+    vec3 dir = normalize( vec3(uv.x,uv.y,pho.z) - org );
+    
+    
+    vec3 col = sdf_March( org , dir );
+
+    // Output to screen
+    fragColor = vec4(col,1.0);
+}
+
+
+
+
+
+
+
+
+
+

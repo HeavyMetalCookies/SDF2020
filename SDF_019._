@@ -1,0 +1,238 @@
+//[ THIS_FILE_IS[ SDF_019._ ]                        ]//
+/** ************************************************ ***
+***                                                  ***
+***     Live Stream Of Me Working On This Code:      ***
+***                                                  ***
+*** ************************************************ ***
+
+                twitch.com/kanjicoder    
+
+*** ************************************************ ***
+***                                                  ***
+*** EASY_URLS:(BELOW):- - - - - - - - - - - - - - -: ***
+***                                                  ***
+***                                                  ***
+***     LIVE_____DEMO:  tinyurl.com/SDF-019-DEMO     ***
+***     SETUP___VIDEO:  tinyurl.com/SDF-019-SETUP    ***
+***                                                  ***
+***                                                  ***
+***     SELF______URL:  tinyurl.com/SDF-019          ***
+***     DOCUMENTATION:  tinyurl.com/SDF-019          ***
+***     SOURCE_COMMON:  tinyurl.com/SDF-019-COMMON   ***
+***     SOURCE_BUFFER:  tinyurl.com/SDF-019-BUFFER   ***
+***     SOURCE__IMAGE:  tinyurl.com/SDF-019-IMAGE    ***
+***                                                  ***
+*** DIRECT_URLS:(BELOW):- - - - - - - - - - - - - -: ***
+***                                                  ***
+***                                                  ***
+***     LIVE_____DEMO:  shadertoy.com/view/3dGfW1    ***
+***     SETUP___VIDEO:  youtu.be/***********         ***
+***                                                  ***
+***                                                  ***
+***     SELF______URL:  pastebin.com/dxLNjewe        ***
+***     DOCUMENTATION:  pastebin.com/dxLNjewe        ***
+***     SOURCE_COMMON:  pastebin.com/mtfV86iR        ***
+***     SOURCE_BUFFER:  pastebin.com/6t5ReRG1        ***
+***     SOURCE__IMAGE:  pastebin.com/mb8yzmFr        ***
+***                                                  ***
+*** ************************************************ **/
+//:AGENDA:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA://
+/** ************************************************ ***
+    What This Code Does:
+
+        Sets tiles on a 3D voxel map using a 
+        rudimentary 2D tilemap view.
+
+    About: Voxel Engine Work.                     
+           LONG_TERM_GOAL:1: 63x63x63 voxel map.(NOT:64)
+           LONG_TERM_GOAL:2: Fractal 3D Auto Tilling.
+                                                  
+    AGENDA:                                       
+        Store 512 x 512 values worth of tiles     
+        by splitting the A,R,G,B components of    
+        of 256x256 buffer.                        
+                                                  
+        Thus each tile value is 1 byte, with      
+        valid values 0-255.                       
+                                                  
+*** ************************************************ **/                                              
+//:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:AGENDA://
+//:KEY:KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK://
+/** ************************************************ ***
+
+VARS:
+
+    rfp : reset_flag_pixel
+    rfb : reset_flag__byte (Alpha channel of rfp)
+    fcc : frag_Centered_coord
+    f_c : frag_coord (Discreet_Integer_Pixel_Value)
+    csC : cross_section_COLOR
+    csL : cross_section_LOCAL (localLayerIndex 0,1,2,3 )
+    csF : cross_section_FIRST_FLOOR_OF_GIVEN_COLOR
+    csG : csG==csF. Use csF. csG == cs:GlobalFloorIndex
+    csI : cross_section_INDEX ( USE: csL )
+    csX : cross_section CELL_64_64 location, X-axis
+    csY : cross_section CELL_64_64 lcoation, Y-axis
+    coX : Crosssection_Origin:X (left pixel of csX)
+    coY : Crosssection_Origin:Y (top  pixel of cxY)
+    p_x : ACTUAL pixel:x location on texture.
+    p_y : ACTUAL pixel:y location on texture.
+    p_z : NO SUCH FUCKING THING. 2D Texture.
+    c4d : Color_4_Dimensional. ( vec4 type )
+    byt : BYTe (0-255 value, a U32 (uint32))
+    v_i : Voxel 1D Index specifying voxel [X,Y,Z]
+    v_d : No such thing. DO_NOT_USE_FOR[ v_i ]
+    v_x : Voxel_X( von[0].x /|/ von_000.x )
+    v_y : Voxel_Y( von[0].y /|/ von_000.y )
+    v_z : Voxel_Z( von[0].z /|/ von_000.y )
+    c4x : NOT_USED_AMBIGUOUS_COULD_IDENTIFY[ csX | cqX ]
+    c4y : NOT_USED_AMBIGUOUS_COULD_IDENTIFY[ csY | cqY ]
+    cqX : RGBA Cell Quadrant X ( 0 or 1 )
+    cqY : RGBA Cell Quadrant Y ( 0 or 1 )
+    t_x : Tile_X : ONLY_FOR_2D_Data! (Not Voxels)
+    t_y : Tile_Y : ONLY_FOR_2D_Data! (Not Voxels)
+    t_z : NO_SUCH_THING( Tiles Are Now Only 2D  )
+    v3d : Voxel_location_3D ( ivec3( v_x , v_y , v_z ) )
+
+    v_i_512 : v_i , abstracting data as 512x512 bitmap.
+    p_x_512 : p_x , abstracting data as 512x512 bitmap.
+    p_y_512 : p_y , abstracting data as 512x512 bitmap.
+    p_x_256 : p_x , ACTUAL  location on 256x256 bitmap.
+    p_y_256 : p_y , ACTUAL  location on 256x256 bitmap.
+    pxy_256 : DONT_USE. USE[ xyc_256 ]
+    xyc_256 : ivec3( p_x , p_y , csC )
+
+    tib: TIle__Byte (Tiles  are 2D)
+    vob: VOxel_Byte (Voxels are 2D)
+  
+TOKENS:
+
+    D01: Diagram # 1
+
+FUNCS:
+   
+    v_i_512_CTO_vob : GET_VOB ,use: DEX
+        v3d_CTO_vob : GET_VOB ,use: ivec3( v_x,v_y,v_z )
+
+NOT_ACTUALLY_FUNCTIONS:
+
+    GET_vob_USE_dex ---> USE[ v_i_512_CTO_vob ]
+    GET_vob_USE_v3d ---> USE[     v3d_CTO_vob ]
+    VOB_XYZ -----------> USE[     v3d_CTO_vob ]
+    VOB_DEX -----------> USE[ v_i_512_CTO_vob ]
+
+SHORTHAND_PHRASES:
+
+    GET_TIB : GET TIle__BYTE ( Tile  Value 0 - 255 )
+    GET_VOB : GET VOxel_BYTE ( Voxel Value 0 - 255 )
+ 
+AVOID:
+
+    fpc: Looks too much like "percent something..."
+         Use "fcc" instead.
+
+*** ************************************************ **/
+//:KKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKKK:KEY://
+//:AT_ANALOGIES:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA://
+
+    @SIXTEEN_FLOORS_OF_EACH_COLOR@
+        Think of a skyscraper where the bottom
+        16 floors are RED, next 16 floors green,
+        next 16 floors BLUE, last 16 floors ALPHA.
+
+        AND... @EACH_FLOOR_IS_64_BY_64@
+
+//:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA:AT_ANALOGIES://
+//:EXTRACTED_COMMENTS:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE://
+/** ************************************************ ***
+
+    #PIXEL_255_ALPHA####################################
+
+        Bottom Left Corner Pixel [255,255] ALPHA BITS:
+
+        MSB: 1  :  Data Initilialized Bit
+             1  :  2D or 3D view of tilemap?
+                :  0 : 2D view
+                :  1 : 3D view
+        
+             1  : ---+
+             1  :    |
+             1  :    +-- What layer are we on?
+             1  :    +-- Number in range:[0 - 63]
+             1  :    |   (When 2D view is selected)
+        LSB  1  : ---+
+
+    ####################################PIXEL_127_ALPHA#
+    #TILE_DATA_LAYOUT###################################
+
+        ( 512 x 512 ) === ( 64 x 64 x 64 )
+
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+          +--- Tip Of Missle Silo.
+          |    High values mean we are DEEPER into 
+          V    the data.
+    ====+---+===========================================
+        | R |  <-- csC == 0  (  0 <= v_z  <= 15 )   
+        +---+
+        | G |  <-- csC == 1  ( 16 <= v_z  <= 31 )      
+        +---+  
+        | B |  <-- csC == 2  ( 32 <= v_z  <= 47 )    
+        +---+
+        | A |  <-- csC == 3  ( 48 <= v_z  <= 63 )   
+        +---+
+                                           ( CRO_SEC )
+                                           ( 64 x 64 )
+        |<-512->|         |<-256->|             |
+    --- +---+---+ ------- +-------+      +-+-+-+V+
+     |  | R | G |         |       |      |_|_|_|_|
+    D01 +---+---+         |   G   | -->  |_|_|_|_|
+     |  | B | A | \       |       |      |_|_|_|_|
+    --- +-^-+---+  \_____ +-------+      +_|_|_|_+
+          |                           ___|       |
+         cqx == 0                    /           |
+         cqy == 1                   /            |
+         csC == 2                  /             |
+                                  /              |
+                                 |<- 256 pixel ->|
+    @16_64X64_FLOORS_ON_4X4_GRID@+---+---+---+---+ ---
+                    |           /| 0 | 1 | 2 | 3 |  |
+                    +----------> +---+---+---+---+  |
+                             /   | 4 | 5 | 6 | 7 |  |
+                            /    +---+---+---+---+  4
+                           /     | 8 | 9 |10 |11 | cell
+    +---------------------+      +---+---+---+---+  |
+    |                            |12 |13 |14 |15 |  |
+    +   +----------------------- +---+---+-^-+---+ ---
+    |   |                                  |
+    |   |                              CELL_64_64  
+    |   |                              csL === 14
+    |   |                              csY ===  3
+    |   |                              csX ===  2
+    |   |   +---+
+    |   |   | R | CRO_SEC(S):  0 -to- 15 (16 total)
+    |   |   +---+ 
+    |   |   
+    |   +-- +---+
+    |       | G | CRO_SEC(S): 16 -to- 31 (16 total)
+    +---+-- +---+
+            
+            +---+
+            | B | CRO_SEC(S):32 -to- 47 (16 total)
+            +---+
+            
+            +---+
+            | A | CRO_SEC(S): 48 -to- 64 (16 total)
+            +---+
+
+    ###################################TILE_DATA_LAYOUT#
+    #WHY_VOB_DEX########################################
+
+        Because we need to somehow encode [X,Y,Z]
+        value of voxel location as a single integer
+        that we can pass around in our 
+        stack addresses ( sta_add ).
+
+    ########################################WHY_VOB_DEX#
+
+*** ************************************************ **/
+//:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE:EXTRACTED_COMMENTS://
