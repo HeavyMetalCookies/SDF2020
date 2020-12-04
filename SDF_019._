@@ -246,6 +246,98 @@ AVOID:
         MAP_004: Elemental Things. Fire, Water, ETC.
 
     #########################################EXTRA_MAPS#
+    #FRACTAL_AUTO_TILING_NESTING########################
+        ._.
+        |_| 1x1                (VON_005 /|/ sta_con[5])  
+        
+        ._._._.
+        |_|_|_|
+        |_|_|_| 3x3            (VON_004 /|/ sta_con[4])
+        |_|_|_| 
+        
+        ._._._._._._._.
+        |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_|
+        |_ _ _   _ _ _| 7x7    (VON_003 /|/ sta_con[3])
+        |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_|
+        |_|_|_|_|_|_|_|   
+        
+        15x15: (VON_002 /|/ sta_con[2])
+        ._._._._._._._._._._._._._._._.
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_ _ _   _ _ _| |_ _ _   _ _ _|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_|_|_|_|_| |_|_|_|_|_|_|_|
+        |_ _ _ _ _ _ _   _ _ _ _ _ _ _|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_ _ _   _ _ _| |_ _ _   _ _ _|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_| |_|_|_| |_|_|_| |_|_|_|
+        |_|_|_|_|_|_|_|_|_|_|_|_|_|_|_|
+        15x15: (VON_002 /|/ sta_con[2])
+        
+        +----+   +----+
+        | 31 | X | 31 | 31x31  (VON_001 /|/ sta_con[1])
+        +----+   +----+
+        
+        +----+   +----+
+        | 63 | X | 63 | 63x63  (VON_000 /|/ sta_con[0])
+        +----+   +----+
+    
+        We stop marching into sub-divided space when
+        we hit VON_004. The size of VON_004 is one
+        pixel. (1 frag coord).
+        
+        V5R (  1 ) //:   VON_005 Relative Span   ://
+        V4R (  3 ) //:   VON_004 Relative Span   ://
+        V3R (  7 ) //:   VON_003 Relative Span   ://
+        V2R ( 15 ) //:   VON_002 Relative Span   ://
+        V1R ( 31 ) //:   VON_001 Relative Span   ://
+        V0R ( 63 ) //:   VON_000 Relative Span   ://
+        
+        //:Absolute_Spans::::::::::::::::::::::::::::://
+        //:---------------------------------:123456::://
+        //:                                 :      ::://
+        V5A (  1                        ) //:     1::://
+        V4A (  1 * 3                    ) //:     3::://
+        V3A (  1 * 3 * 7                ) //:    21::://
+        V2A (  1 * 3 * 7 * 15           ) //:   315::://
+        V1A (  1 * 3 * 7 * 15 * 31      ) //:  9765::://
+        V0A (  1 * 3 * 7 * 15 * 31 * 63 ) //:615195::://
+        //:                                 :      ::://
+        //:---------------------------------:123456::://
+        //:WIKIPEDIA:                              ::://
+        All integers with 7 or fewer decimal digits::://
+        [...]can be converted exactly into an IEEE ::://
+        754 single-precision floating-point value. ::://
+        //:---------------------------------:123456::://
+        
+        Lets encode it as this in the .IMAGE code:
+        
+        I32 V_R[6] =I32[6](  1 , 3 , 7 , 15, 31, 63 );
+        I32 V_A[6] =I32[6]( 
+            (  1 * 3 * 7 * 15 * 31 * 63 ) //:V0A
+        ,   (  1 * 3 * 7 * 15 * 31      ) //:V1A
+        ,   (  1 * 3 * 7 * 15           ) //:V2A
+        ,   (  1 * 3 * 7                ) //:V3A
+        ,   (  1 * 3                    ) //:V4A
+        ,   (  1                        ) //:V5A
+        );;
+        
+        Because we want to keep everything ABSOLUTE
+        rather than [local/relative], there is probably
+        no need for V_R[6]. Grid collision divides by
+        V_A[6] to figure out where you are in space.
+        
+    ########################FRACTAL_AUTO_TILING_NESTING#
+    
 
 *** ************************************************ **/
 //:EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE:EXTRACTED_COMMENTS://
